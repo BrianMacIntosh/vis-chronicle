@@ -62,3 +62,14 @@ Item properties:
 * `type`: vis-timeline type of the item.
 * `startQuery`: A SPARQL query segment that selects the desired start time of the object. Can be a query term like `Q5335019 p:P569/psv:P569 {_OUTVAR}.` or a template query like `#dateOfBirth`.
 * `endQuery`: Same as `startQuery`, but for the end time.
+
+## Parameters
+
+The tool can be run as a package script like `vis-chronicle ./src/timeline.json -v`.
+
+The tool takes these parameters on the command line:
+* (Mandatory) The name of the input file.
+* (Optional) The name of the output file. Defaults to `intermediate/timeline.json`.
+* `-v[erbose]`: Print verbose output, including the actual queries being run.
+* `-skip-wd-cache`: Do not read anything from the local cache, query all data fresh.
+* `-q[uery-url]`: The URL of the SPARQL endpoint. Defaults to `https://query.wikidata.org/sparql`.
