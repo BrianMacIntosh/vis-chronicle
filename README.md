@@ -18,7 +18,6 @@ This specification file generates a timeline containing the lifespans of every U
 	"options":
 	{
 		"width": "100%",
-		"groupHeightMode": "fixed",
 		"preferZoom": false,
 		"showCurrentTime": true
 	},
@@ -40,6 +39,7 @@ This specification file generates a timeline containing the lifespans of every U
 		{
 			"label": "Ed Kealty (fictional)",
 			"entity": "Q5335019",
+			"group": "presidents",
 			"startQuery": "#dateOfBirth",
 			"endQuery": "#dateOfDeath"
 		}
