@@ -100,7 +100,8 @@ module.exports = {
 		const data = await this.runQuery(query)
 		if (data.results.bindings.length == 0)
 		{
-			console.error(`Query for ${item.id} returned no bindings.`)
+			console.warn(`Query for ${item.id} returned no bindings.`)
+			this.cache[queryTerm] = {}
 			return {}
 		}
 		else
