@@ -62,7 +62,7 @@ function produceVisjsTime(inTime)
 			const yearBase = Math.pow(10, 9 - inTime.precision)
 			const roundedYear = Math.round(date.year() / yearBase) * yearBase
 			const yearString = Math.abs(roundedYear).toFixed(0).padStart(6, "0")
-			const sign = roundedYear < 0 ? '-' : '';
+			const sign = roundedYear < 0 ? '-' : '+';
 			return `${sign}${yearString}-01-01T00:00:00`
 		case 10: // month precision
 			return date.format("YYYYYY-MM-01T00:00:00")
