@@ -88,6 +88,7 @@ module.exports = {
 		// read cache
 		if (!this.skipCache && this.cache[queryTerm])
 		{
+			console.log("Term cache hit.")
 			return this.cache[queryTerm]
 		}
 		
@@ -96,7 +97,7 @@ module.exports = {
 
 		//TODO: prevent injection
 		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`
-		
+
 		const data = await this.runQuery(query)
 		if (data.results.bindings.length == 0)
 		{
@@ -132,30 +133,12 @@ module.exports = {
 
 		var outParams = [ itemVar, itemVar + "Label" ]
 		var queryTerms = [ itemQueryTerm, `SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }` ]
-		if (templateItem.startQuery)
-		{
-			outParams.push("?startValue", "?startPrecision")
-			queryTerms.push(this.getQueryTerm(templateItem.startQuery, "?startTime", templateItem))
-			queryTerms.push(
-				"?startTime wikibase:timeValue ?startValue.",
-				"?startTime wikibase:timePrecision ?startPrecision.")
-		}
-		if (templateItem.endQuery)
-		{
-			outParams.push("?endValue", "?endPrecision")
-			queryTerms.push(this.getQueryTerm(templateItem.endQuery, "?endTime", templateItem))
-			queryTerms.push(
-				"?endTime wikibase:timeValue ?endValue.",
-				"?endTime wikibase:timePrecision ?endPrecision.")
-		}
 		
 		//TODO: prevent injection
 		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`
 		const data = await this.runQuery(query)
 
 		const newItems = []
-
-		templateItem.finished = true
 
 		// clone the template for each result
 		for (const binding of data.results.bindings)
@@ -165,23 +148,10 @@ module.exports = {
 			delete newItem.itemQuery
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
 			newItem.label = binding[itemVarName + "Label"].value
-			if (binding.startValue)
-			{
-				newItem.start = {
-					value: binding.startValue.value,
-					precision: parseInt(binding.startPrecision.value)
-				}
-			}
-			if (binding.endValue)
-			{
-				newItem.end = {
-					value: binding.endValue.value,
-					precision: parseInt(binding.endPrecision.value)
-				}
-			}
 			newItems.push(newItem)
 		}
 
+		templateItem.finished = true
 		console.log(`Item-generating query '${templateItem.itemQuery}' created ${newItems.length} items.`)
 
 		return newItems;
