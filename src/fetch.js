@@ -45,9 +45,15 @@ wikidata.verboseLogging = values["verbose"]
 // produces a Visjs time string from a Wikidata value/precision time object
 function produceVisjsTime(inTime)
 {
-	var date = moment.utc(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
+	if (!inTime.value)
+	{
+		// missing value
+		//TODO: display open-ended
+		return moment().format("YYYYYY-MM-DDT00:00:00")
+	}
 
 	// vis.js has trouble with negative years unless they're six digits
+	const date = moment.utc(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
 
 	//TODO: do something nice in the GUI to indicate imprecision of times
 	switch (inTime.precision)
