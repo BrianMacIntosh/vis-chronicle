@@ -1,6 +1,7 @@
 
 const mypath = require("./mypath.js")
 const fs = require('fs');
+const globalTemplates = require("./global-templates.json")
 
 module.exports = {
 
@@ -43,9 +44,20 @@ module.exports = {
 		if (queryTerm.startsWith("#"))
 		{
 			const templateName = queryTerm.substring(1).trim()
+
+			var queryTemplate;
 			if (this.inputSpec.queryTemplates && this.inputSpec.queryTemplates[templateName])
 			{
-				queryTerm = this.inputSpec.queryTemplates[templateName]
+				queryTemplate = this.inputSpec.queryTemplates[templateName]
+			}
+			else (globalTemplates && globalTemplates[templateName])
+			{
+				queryTemplate = globalTemplates[templateName]
+			}
+
+			if (queryTemplate)
+			{
+				queryTerm = queryTemplate
 
 				// replace query wildcards
 				for (const key in item)

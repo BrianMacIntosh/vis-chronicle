@@ -1,0 +1,10 @@
+{
+	"dateOfBirth": "{entity} p:P569/psv:P569 {_OUTVAR}.",
+	"dateOfDeath": "{entity} p:P570/psv:P570 {_OUTVAR}.",
+
+	"inception": "{entity} p:P571/psv:P571 {_OUTVAR}.",
+	"dissolved": "{entity} p:P576/psv:P576 {_OUTVAR}.",
+
+	"positionHeldStart": "{entity} p:P39 [ ps:P39 {position}; pqv:P580 {_OUTVAR} ].",
+	"positionHeldEnd": "{entity} p:P39 [ ps:P39 {position}; pqv:P582 {_OUTVAR} ]."
+}
