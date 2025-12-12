@@ -1,0 +1,18 @@
+{
+  "name": "vis-chronicle",
+  "version": "0.0.1",
+  "description": "Generates JSON for populating a vis.js timeline from Wikidata.",
+  "private": true,
+  "bin": {
+	"vis-chronicle": "src/fetch.js"
+  },
+  "scripts": {
+  },
+  "author": "Brian MacIntosh",
+  "license": "ISC",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "moment": "2.30.1"
+  }
+}
