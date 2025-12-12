@@ -9,6 +9,7 @@ const nodeutil = require('node:util')
 const { values, positionals } = nodeutil.parseArgs({
 	allowPositionals: true,
 	options: {
+		"verbose": { type: 'boolean', short: 'v', default: false },
 		"skip-wd-cache": { type: 'boolean', default: false },
 		"query-url": { type: 'string', short: 'q', default: "https://query.wikidata.org/sparql" }
 	}})
@@ -39,6 +40,7 @@ const inputSpec = require(path.join(process.cwd(), specFile))
 wikidata.setInputSpec(inputSpec)
 wikidata.skipCache = values["skip-wd-cache"]
 wikidata.sparqlUrl = values["query-url"]
+wikidata.verboseLogging = values["verbose"]
 
 // produces a Visjs time string from a Wikidata value/precision time object
 function produceVisjsTime(inTime)
@@ -74,7 +76,7 @@ function produceVisjsTime(inTime)
 // produces JSON output from the queried data
 function produceOutput(items)
 {
-	var outputObject = { items: [], groups: inputSpec.groups }
+	var outputObject = { items: [], groups: inputSpec.groups, options: inputSpec.options }
 	for (const item of items)
 	{
 		var outputItem = {

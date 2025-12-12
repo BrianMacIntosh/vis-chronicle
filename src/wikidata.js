@@ -5,6 +5,7 @@ const fs = require('fs');
 module.exports = {
 
 	inputSpec: null,
+	verboseLogging: false,
 
 	cache: {},
 	skipCache: false,
@@ -152,17 +153,15 @@ module.exports = {
 		const data = await this.runQuery(query)
 
 		const newItems = []
-		console.log(`Item-generating query succeeded.`)
 
-		// remove parameters that shouldn't be cloned
-		delete templateItem.comment
-		delete templateItem.itemQuery
 		templateItem.finished = true
 
 		// clone the template for each result
 		for (const binding of data.results.bindings)
 		{
 			const newItem = structuredClone(templateItem)
+			delete newItem.comment
+			delete newItem.itemQuery
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
 			newItem.label = binding[itemVarName + "Label"].value
 			if (binding.startValue)
@@ -182,12 +181,16 @@ module.exports = {
 			newItems.push(newItem)
 		}
 
+		console.log(`Item-generating query '${templateItem.itemQuery}' created ${newItems.length} items.`)
+
 		return newItems;
 	},
 
 	// runs a SPARQL query
 	runQuery: async function(query)
 	{
+		if (this.verboseLogging) console.log(query)
+
 		const params = "format=json&query=" + encodeURIComponent(query)
 		const response = await fetch(this.sparqlUrl + "?" + params) // SPARQL does not accept POST
 		if (response.status != 200)
