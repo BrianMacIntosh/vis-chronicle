@@ -90,13 +90,13 @@ module.exports = {
 		{
 			return this.cache[queryTerm]
 		}
+		
+		var outParams = [ '?value', '?precision' ]
+		var queryTerms = [ queryTerm, '?time wikibase:timeValue ?value.', '?time wikibase:timePrecision ?precision.' ]
 
-		const query = //TODO: prevent injection
-	`SELECT ?value ?precision WHERE {
-	${queryTerm}
-	?time wikibase:timeValue ?value.
-	?time wikibase:timePrecision ?precision.
-	}`
+		//TODO: prevent injection
+		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`
+		
 		const data = await this.runQuery(query)
 		if (data.results.bindings.length == 0)
 		{
