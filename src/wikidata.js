@@ -63,7 +63,7 @@ module.exports = {
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
-		queryTerm = queryTerm.replace("{_OUTVAR}", outVarName)
+		queryTerm = queryTerm.replaceAll("{_OUTVAR}", outVarName)
 		if (!queryTerm.trim().endsWith("."))
 		{
 			queryTerm += "."
