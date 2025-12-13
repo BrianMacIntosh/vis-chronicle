@@ -2,8 +2,9 @@
 const mypath = require("./mypath.js")
 const fs = require('fs');
 const globalTemplates = require("./global-templates.json")
+const assert = require('node:assert/strict');
 
-module.exports = {
+const wikidata = module.exports = {
 
 	inputSpec: null,
 	verboseLogging: false,
@@ -13,6 +14,30 @@ module.exports = {
 	termCacheFile: "intermediate/wikidata-term-cache.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
+
+	rankDeprecated: "http://wikiba.se/ontology#DeprecatedRank",
+	rankNormal: "http://wikiba.se/ontology#NormalRank",
+	rankPreferred: "http://wikiba.se/ontology#PreferredRank",
+
+	// Sequential list of filters to narrow down a list of bindings to the best result
+	bindingFilters: [
+		(binding, index, array) => {
+			return binding.rank.value != wikidata.rankDeprecated;
+		},
+		(binding, index, array) => {
+			return binding.rank.value === wikidata.rankPreferred;
+		},
+	],
+
+	initialize: function()
+	{
+		const chroniclePackage = require("../package.json")
+		this.options = {
+			headers: {
+				'User-Agent': `vis-chronicle/${chroniclePackage.version} (https://github.com/BrianMacIntosh/vis-chronicle) Node.js/${process.version}`
+			}
+		}
+	},
 
 	setInputSpec: function(inSpec)
 	{
@@ -67,15 +92,16 @@ module.exports = {
 						insertValue = "wd:" + insertValue
 					queryTerm = queryTerm.replace(`{${key}}`, insertValue)
 				}
-
-				//TODO: detect unreplaced wildcards
 			}
 			else
 			{
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
-		queryTerm = queryTerm.replaceAll("{_OUTVAR}", outVarName)
+		queryTerm = queryTerm.replaceAll("{_OUT}", outVarName)
+
+		//TODO: detect unreplaced wildcards
+
 		if (!queryTerm.trim().endsWith("."))
 		{
 			queryTerm += "."
@@ -95,42 +121,69 @@ module.exports = {
 	// runs a SPARQL query term for a time value (after wrapping it in the appropriate boilerplate)
 	runTimeQueryTerm: async function (queryTerm, item)
 	{
-		queryTerm = this.getQueryTerm(queryTerm, "?time", item)
+		queryTerm = this.getQueryTerm(queryTerm, "?prop", item)
 
 		// read cache
 		if (!this.skipCache && this.cache[queryTerm])
 		{
-			console.log("Term cache hit.")
+			console.log("\tTerm cache hit.")
 			return this.cache[queryTerm]
 		}
 		
-		var outParams = [ '?value', '?precision' ]
-		var queryTerms = [ queryTerm, '?time wikibase:timeValue ?value.', '?time wikibase:timePrecision ?precision.' ]
+		var outParams = [ '?time', '?precision', '?rank' ]
+		var queryTerms = [
+			queryTerm,
+			'?prop ?dummypsv ?value.',
+			'?prop wikibase:rank ?rank.',
+			'?value wikibase:timeValue ?time.',
+			'?value wikibase:timePrecision ?precision.'
+		]
 
 		//TODO: prevent injection
 		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`
 
 		const data = await this.runQuery(query)
-		if (data.results.bindings.length == 0)
+		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
+
+		var result;
+		if (data.results.bindings.length <= 0)
 		{
-			console.warn(`Query for ${item.id} returned no bindings.`)
-			this.cache[queryTerm] = {}
-			return {}
+			result = {}
 		}
-		else
+		else if (data.results.bindings.length == 1)
 		{
-			if (data.results.bindings.length > 1)
-			{
-				console.warn(`Query for ${item.id} returned multiple bindings. Using the first.`)
-			}
-			console.log(`Query for ${item.id} succeeded.`)
-			const result = {
-				value: data.results.bindings[0].value.value,
+			result = {
+				value: data.results.bindings[0].time.value,
 				precision: parseInt(data.results.bindings[0].precision.value)
 			}
-			this.cache[queryTerm] = result;
-			return result;
 		}
+		else // data.results.bindings.length > 1
+		{
+			// filter the values down until there are none
+			var lastBindings = data.results.bindings.slice()
+			for (const filter of this.bindingFilters)
+			{
+				workingBindings = lastBindings.filter(filter)
+				if (workingBindings.length == 0)
+				{
+					break
+				}
+				lastBindings = workingBindings
+			}
+			
+			if (lastBindings.length > 1)
+			{
+				console.warn("\tQuery returned multiple equally-preferred values.")
+			}
+
+			result = {
+				value: lastBindings[0].time.value,
+				precision: parseInt(lastBindings[0].precision.value)
+			}
+		}
+
+		this.cache[queryTerm] = result;
+		return result;
 	},
 
 	// runs a SPARQL query that generates multiple items
@@ -175,9 +228,14 @@ module.exports = {
 		if (this.verboseLogging) console.log(query)
 
 		const params = "format=json&query=" + encodeURIComponent(query)
-		const response = await fetch(this.sparqlUrl + "?" + params) // SPARQL does not accept POST
+		const request = this.sparqlUrl + "?" + params
+		//if (this.verboseLogging) console.log(request)
+
+		assert(this.options)
+		const response = await fetch(request, this.options)
 		if (response.status != 200)
 		{
+			console.log(response)
 			console.error(`${response.status}: ${response.statusText}`)
 			return null
 		}
@@ -187,5 +245,4 @@ module.exports = {
 			return data
 		}
 	}
-
 } 

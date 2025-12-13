@@ -41,6 +41,7 @@ wikidata.setInputSpec(inputSpec)
 wikidata.skipCache = values["skip-wd-cache"]
 wikidata.sparqlUrl = values["query-url"]
 wikidata.verboseLogging = values["verbose"]
+wikidata.initialize()
 
 // produces a Visjs time string from a Wikidata value/precision time object
 function produceVisjsTime(inTime)
