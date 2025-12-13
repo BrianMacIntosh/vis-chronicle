@@ -14,6 +14,7 @@ const wikidata = module.exports = {
 	termCacheFile: "intermediate/wikidata-term-cache.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
+	lang: "en,mul",
 
 	rankDeprecated: "http://wikiba.se/ontology#DeprecatedRank",
 	rankNormal: "http://wikiba.se/ontology#NormalRank",
@@ -37,6 +38,12 @@ const wikidata = module.exports = {
 				'User-Agent': `vis-chronicle/${chroniclePackage.version} (https://github.com/BrianMacIntosh/vis-chronicle) Node.js/${process.version}`
 			}
 		}
+	},
+
+	setLang: function(inLang)
+	{
+		//TODO: escape
+		this.lang = inLang
 	},
 
 	setInputSpec: function(inSpec)
@@ -197,7 +204,7 @@ const wikidata = module.exports = {
 		const itemQueryTerm = this.getQueryTerm(templateItem.itemQuery, itemVar, templateItem)
 
 		var outParams = [ itemVar, itemVar + "Label" ]
-		var queryTerms = [ itemQueryTerm, `SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }` ]
+		var queryTerms = [ itemQueryTerm, `SERVICE wikibase:label { bd:serviceParam wikibase:language "${this.lang}". }` ]
 		
 		//TODO: prevent injection
 		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`

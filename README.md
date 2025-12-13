@@ -56,7 +56,7 @@ This specification file generates a timeline containing the lifespans of every U
 
 Item properties:
 * `label`: Literal items only. Display label for the item. Can contain HTML.
-* `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `{_OUT}` stands in for the ouput variable. Item labels are automatically fetched from Wikidata.
+* `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `{_OUT}` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
 * `group`: The vis-timeline group to put the item(s) in.
 * `className`: CSS class to apply to the timeline div.
 * `type`: vis-timeline type of the item.
@@ -73,3 +73,4 @@ The tool takes these parameters on the command line:
 * `-v[erbose]`: Print verbose output, including the actual queries being run.
 * `-skip-wd-cache`: Do not read anything from the local cache, query all data fresh.
 * `-q[uery-url]`: The URL of the SPARQL endpoint. Defaults to `https://query.wikidata.org/sparql`.
+* `-l[ang]`: Language priorities to use when fetching labels. Defaults to `en,mul`. See (SPARQL/SERVICE - Label)[https://en.wikibooks.org/wiki/SPARQL/SERVICE_-_Label].

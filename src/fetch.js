@@ -11,7 +11,8 @@ const { values, positionals } = nodeutil.parseArgs({
 	options: {
 		"verbose": { type: 'boolean', short: 'v', default: false },
 		"skip-wd-cache": { type: 'boolean', default: false },
-		"query-url": { type: 'string', short: 'q', default: "https://query.wikidata.org/sparql" }
+		"query-url": { type: 'string', short: 'q', default: "https://query.wikidata.org/sparql" },
+		"lang": { type: 'string', short: 'l', default: "en,mul" }
 	}})
 	
 var specFile = positionals[0]
@@ -41,6 +42,7 @@ wikidata.setInputSpec(inputSpec)
 wikidata.skipCache = values["skip-wd-cache"]
 wikidata.sparqlUrl = values["query-url"]
 wikidata.verboseLogging = values["verbose"]
+wikidata.setLang(values["lang"])
 wikidata.initialize()
 
 // produces a Visjs time string from a Wikidata value/precision time object
