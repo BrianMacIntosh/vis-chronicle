@@ -1,7 +1,7 @@
 
 const mypath = require("./mypath.js")
 const fs = require('fs');
-const globalTemplates = require("./global-templates.json")
+const globalData = require("./global-data.json")
 const assert = require('node:assert/strict');
 
 const wikidata = module.exports = {
@@ -82,9 +82,9 @@ const wikidata = module.exports = {
 			{
 				queryTemplate = this.inputSpec.queryTemplates[templateName]
 			}
-			else (globalTemplates && globalTemplates[templateName])
+			else (globalData && globalData.queryTemplates && globalData.queryTemplates[templateName])
 			{
-				queryTemplate = globalTemplates[templateName]
+				queryTemplate = globalData.queryTemplates[templateName]
 			}
 
 			if (queryTemplate)

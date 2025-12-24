@@ -1,0 +1,24 @@
+{
+	"queryTemplates":
+	{
+		"dateOfBirth": "{entity} p:P569 {_OUT}.",
+		"dateOfDeath": "{entity} p:P570 {_OUT}.",
+
+		"inception": "{entity} p:P571 {_OUT}.",
+		"dissolved": "{entity} p:P576 {_OUT}.",
+
+		"positionHeldStart": "{entity} p:P39 [ ps:P39 {position}; pq:P580 {_OUT} ].",
+		"positionHeldEnd": "{entity} p:P39 [ ps:P39 {position}; pq:P582 {_OUT} ]."
+	},
+	"expectations":
+	[
+		{
+			"startQuery": "#dateOfBirth",
+			"endQuery": "#dateOfDeath",
+			"duration": { "avg": "P80Y", "max": "P150Y" }
+		},
+		{
+			"duration": { "avg": "P100Y" }
+		}
+	]
+}

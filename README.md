@@ -21,7 +21,10 @@ This specification file generates a timeline containing the lifespans of every U
 	{
 		"width": "100%",
 		"preferZoom": false,
-		"showCurrentTime": true
+		"showCurrentTime": true,
+		"stack": false,
+		"stackSubgroups": false,
+		"verticalScroll": true
 	},
 	"queryTemplates":
 	{
@@ -50,7 +53,7 @@ This specification file generates a timeline containing the lifespans of every U
 
 ```
 
-`groups` and `options` are transparently passed through for vis-timeline - see the vis-timeline documentation.
+`groups` and `options` are transparently passed through for vis-timeline - see the vis-timeline documentation. `"stack": false` and `"stackSubgroups": false` false are necessary in order for chronicle's open-ended ranges to display correctly.
 
 `queryTemplates` contains template queries to be re-used by multiple items. vis-chronicle comes with a few template queries by default. Template queries use `{_OUT}` to represent the output value. Also, any format variable like `{format}` will be replaced by the same-named value on the item entry, allowing templates to be parameterized.
 

@@ -4,6 +4,7 @@
 
 const path = require('path')
 const nodeutil = require('node:util')
+const assert = require('node:assert/strict');
 
 // parse args
 const { values, positionals } = nodeutil.parseArgs({
@@ -36,6 +37,29 @@ const moment = require('moment')
 const fs = require('fs');
 const wikidata = require('./wikidata.js')
 const mypath = require("./mypath.js")
+const globalData = require("./global-data.json")
+
+function postprocessDuration(duration)
+{
+	if (duration.min)
+		duration.min = moment.duration(duration.min)
+	if (duration.max)
+		duration.max = moment.duration(duration.max)
+	if (duration.avg)
+		duration.avg = moment.duration(duration.avg)
+	return duration
+}
+function postprocessGlobalData()
+{
+	for (const expectation of globalData.expectations)
+	{
+		if (expectation.duration)
+		{
+			postprocessDuration(expectation.duration)
+		}
+	}
+}
+postprocessGlobalData()
 
 const inputSpec = require(path.join(process.cwd(), specFile))
 wikidata.setInputSpec(inputSpec)
@@ -45,17 +69,16 @@ wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
 wikidata.initialize()
 
-// produces a Visjs time string from a Wikidata value/precision time object
-function produceVisjsTime(inTime)
+// produces a moment from a Wikidata time
+function wikidataToMoment(inTime)
 {
 	if (!inTime.value)
 	{
 		// missing value
-		//TODO: display open-ended
-		return moment().format("YYYYYY-MM-DDT00:00:00")
+		return undefined
 	}
 
-	// vis.js has trouble with negative years unless they're six digits
+	// moment has trouble with negative years unless they're six digits
 	const date = moment.utc(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
 
 	//TODO: do something nice in the GUI to indicate imprecision of times
@@ -64,22 +87,38 @@ function produceVisjsTime(inTime)
 		case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8: case 9:
 			const yearBase = Math.pow(10, 9 - inTime.precision)
 			const roundedYear = Math.round(date.year() / yearBase) * yearBase
-			const yearString = Math.abs(roundedYear).toFixed(0).padStart(6, "0")
-			const sign = roundedYear < 0 ? '-' : '+';
-			return `${sign}${yearString}-01-01T00:00:00`
+			return date.year(roundedYear).startOf('year')
 		case 10: // month precision
-			return date.format("YYYYYY-MM-01T00:00:00")
+			return date.startOf('month')
 		case 11: // day precision
-			return date.format("YYYYYY-MM-DDT00:00:00")
+			return date.startOf('day')
 		case 12: // hour precision
-			return date.format("YYYYYY-MM-DDThh:00:00")
+			return date.startOf('hour')
 		case 13: // minute precision
-			return date.format("YYYYYY-MM-DDThh:mm:00")
+			return date.startOf('minute')
 		case 14: // second precision
-			return date.format("YYYYYY-MM-DDThh:mm:ss")
+			return date.startOf('second')
 		default:
 			throw `Unrecognized date precision ${inTime.precision}`
 	}
+}
+
+function getExpectation(item)
+{
+	for (const expectation of globalData.expectations)
+	{
+		if (expectation.startQuery && item.startQuery != expectation.startQuery)
+		{
+			continue;
+		}
+		if (expectation.endQuery && item.endQuery != expectation.endQuery)
+		{
+			continue;
+		}
+		return expectation;
+	}
+	assert(false) // expect at least a universal fallback expectation
+	return undefined
 }
 
 // produces JSON output from the queried data
@@ -95,10 +134,69 @@ function produceOutput(items)
 			comment: item.comment,
 			type: item.type
 		}
+
+		// convert fetched time to a moment
 		if (item.start)
-			outputItem.start = produceVisjsTime(item.start)
+			outputItem.start = wikidataToMoment(item.start)
 		if (item.end)
-			outputItem.end = produceVisjsTime(item.end)
+			outputItem.end = wikidataToMoment(item.end)
+
+		// handle missing start or end
+		if (!outputItem.start || !outputItem.end)
+		{
+			// look up duration expectations
+			const expectation = getExpectation(item)
+
+			assert(expectation && expectation.duration && expectation.duration.avg) // expect at least a universal fallback expectation
+
+			if (!outputItem.start && !outerputItem.end)
+			{
+				console.warn(`Item ${item.id} has no start or end.`)
+				continue;
+			}
+			else if (!outputItem.end)
+			{
+				if (expectation.duration.max && outputItem.start.clone().add(expectation.duration.max) < moment())
+				{
+					// 'max' is less than 'now'; it is likely this duration is not ongoing but has an unknown end
+					//TODO: accomodate wikidata special 'no value'
+					outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
+				}
+				else
+				{
+					// 'now' is within 'max' and so it is a reasonable guess that this duration is ongoing
+					outputItem.end = moment()
+				}
+
+				// add a "tail" item after the end
+				outputObject.items.push({
+					id: outputItem.id + "-tail",
+					className: [outputItem.className, "visc-right-tail"].join(' '),
+					content: "&nbsp;",
+					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
+					end: outputItem.end.clone().add(moment.duration("P20Y")).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
+					group: item.group,
+					subgroup: item.entity
+				})
+
+				outputItem.className = [ outputItem.className, 'visc-right-withtail' ].join(' ')
+			}
+			else if (!outputItem.start)
+			{
+				outputItem.start = outputItem.end.clone().subtract(expectation.duration.avg)
+
+				outputItem.className = [outputItem.className, "visc-open-left"].join(' ')
+			}
+			//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
+			//TODO: accept expected durations and place uncertainly before/after those
+		}
+
+		// convert moment to a final string
+		if (outputItem.start)
+			outputItem.start = outputItem.start.format("YYYYYY-MM-DDThh:mm:ss")
+		if (outputItem.end)
+			outputItem.end = outputItem.end.format("YYYYYY-MM-DDThh:mm:ss")
+
 		if (item.group)
 		{
 			outputItem.group = item.group

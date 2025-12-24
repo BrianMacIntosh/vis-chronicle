@@ -1,0 +1,43 @@
+.vis-item.vis-range.visc-open-right
+{
+	background: 
+    	linear-gradient(to right, #d5ddf6 50%, white) padding-box, /*HACK: white for "transparent"*/
+    	linear-gradient(to right, #97b0f8 50%, transparent) border-box;
+	border-color: transparent;
+}
+.vis-item.vis-range.visc-open-left
+{
+	background: 
+    	linear-gradient(to right, white, #d5ddf6 50%) padding-box, /*HACK: white for "transparent"*/
+    	linear-gradient(to right, transparent, #97b0f8 50%) border-box;
+	border-color: transparent;
+}
+.vis-item.vis-range.visc-open-both
+{
+	background: 
+    	linear-gradient(to right, white, #d5ddf6 50%, white) padding-box, /*HACK: white for "transparent"*/
+    	linear-gradient(to right, transparent, #97b0f8 50%, transparent) border-box;
+	border-color: transparent;
+}
+.vis-item.vis-range.visc-right-withtail
+{
+	border-right-style: none;
+}
+.vis-item.vis-range.visc-right-tail
+{
+	background: 
+    	linear-gradient(to right, #d5ddf6, white) padding-box, /*HACK: white for "transparent"*/
+    	linear-gradient(to right, #97b0f8, transparent) border-box;
+	border-color: transparent;
+}
+.vis-item.vis-range.visc-left-withtail
+{
+	border-right-style: none;
+}
+.vis-item.vis-range.visc-left-tail
+{
+	background: 
+    	linear-gradient(to right, white, #d5ddf6) padding-box, /*HACK: white for "transparent"*/
+    	linear-gradient(to right, transparent, #97b0f8) border-box;
+	border-color: transparent;
+}
