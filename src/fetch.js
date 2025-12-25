@@ -173,10 +173,10 @@ function produceOutput(items)
 					outputItem.end = moment()
 				}
 
+				const avgDuration = moment.duration(expectation.duration.avg) //HACK: TODO: consistently postprocess expectations, or don't
 				const actualDuration = moment.duration(outputItem.end.diff(outputItem.start))
-				const excessDuration = expectation.duration.max
-					? moment.duration(expectation.duration.max).subtract(actualDuration)
-					: moment.duration(expectation.duration.avg).subtract(actualDuration) //TODO: multiply by some factor?
+				var excessDuration = moment.duration(avgDuration.asMilliseconds()).subtract(actualDuration)
+				excessDuration = moment.duration(Math.max(excessDuration.asMilliseconds(), avgDuration.asMilliseconds() * 0.25))
 
 				// add a "tail" item after the end
 				outputObject.items.push({
