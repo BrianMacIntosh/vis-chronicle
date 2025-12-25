@@ -149,7 +149,7 @@ function produceOutput(items)
 
 			assert(expectation && expectation.duration && expectation.duration.avg) // expect at least a universal fallback expectation
 
-			if (!outputItem.start && !outerputItem.end)
+			if (!outputItem.start && !outputItem.end)
 			{
 				console.warn(`Item ${item.id} has no start or end.`)
 				continue;
