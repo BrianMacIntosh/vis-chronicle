@@ -55,18 +55,22 @@ This specification file generates a timeline containing the lifespans of every U
 
 `groups` and `options` are transparently passed through for vis-timeline - see the vis-timeline documentation. `"stack": false` and `"stackSubgroups": false` false are necessary in order for chronicle's open-ended ranges to display correctly.
 
-`queryTemplates` contains template queries to be re-used by multiple items. vis-chronicle comes with a few template queries by default. Template queries use `{_OUT}` to represent the output value. Also, any format variable like `{format}` will be replaced by the same-named value on the item entry, allowing templates to be parameterized.
+`queryTemplates` contains template queries to be re-used by multiple items. vis-chronicle comes with a few template queries by default. Queries need to match a property (`p:`) using the variable `?_prop` and a value (such as `psv:` or `pqv:`) using the variable `?_value`. Also, any format variable like `{format}` will be replaced by the same-named value on the item entry, allowing templates to be parameterized.
 
 `items` contains any number of items to generate. An item can be a single, literal item, or a multi-item generator (using `itemQuery`).
 
 Item properties:
-* `label`: Literal items only. Display label for the item. Can contain HTML.
+* `label`: Literal items only. Display label for the item. Can contain HTML. For generators, `{_LABEL}` will be replaced by the Wikidata label.
 * `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `{_OUT}` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
 * `group`: The vis-timeline group to put the item(s) in.
 * `className`: CSS class to apply to the timeline div.
 * `type`: vis-timeline type of the item.
 * `startQuery`: A SPARQL query segment that selects the desired start time of the object. These should select Wikidata properties (not statements or values). Can be a query term like `Q5335019 p:P569 {_OUT}.` or a template query like `#dateOfBirth`.
 * `endQuery`: Same as `startQuery`, but for the end time.
+* `expectedDuration`: Describes the expected duration, for hinting if the start or end is missing.
+    * `min`: The absolute minimum duration.
+	* `max`: The absolute maximum duration.
+	* `avg`: The average duration.
 
 ## Parameters
 

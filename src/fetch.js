@@ -105,6 +105,11 @@ function wikidataToMoment(inTime)
 
 function getExpectation(item)
 {
+	if (item.expectedDuration)
+	{
+		return { "duration": item.expectedDuration };
+	}
+
 	for (const expectation of globalData.expectations)
 	{
 		if (expectation.startQuery && item.startQuery != expectation.startQuery)

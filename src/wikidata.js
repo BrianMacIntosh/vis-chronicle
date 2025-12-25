@@ -71,7 +71,7 @@ const wikidata = module.exports = {
 	},
 
 	// dereferences the query term if it's a pointer to a template
-	getQueryTerm: function(queryTerm, outVarName, item)
+	getQueryTerm: function(queryTerm, item)
 	{
 		if (queryTerm.startsWith("#"))
 		{
@@ -105,8 +105,7 @@ const wikidata = module.exports = {
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
-		queryTerm = queryTerm.replaceAll("{_OUT}", outVarName)
-
+		
 		//TODO: detect unreplaced wildcards
 
 		if (!queryTerm.trim().endsWith("."))
@@ -128,7 +127,7 @@ const wikidata = module.exports = {
 	// runs a SPARQL query term for a time value (after wrapping it in the appropriate boilerplate)
 	runTimeQueryTerm: async function (queryTerm, item)
 	{
-		queryTerm = this.getQueryTerm(queryTerm, "?prop", item)
+		queryTerm = this.getQueryTerm(queryTerm, item)
 
 		// read cache
 		if (!this.skipCache && this.cache[queryTerm])
@@ -137,13 +136,15 @@ const wikidata = module.exports = {
 			return this.cache[queryTerm]
 		}
 		
+		const propVar = '?_prop'
+		const valueVar = '?_value'
+
 		var outParams = [ '?time', '?precision', '?rank' ]
 		var queryTerms = [
 			queryTerm,
-			'?prop ?dummypsv ?value.',
-			'?prop wikibase:rank ?rank.',
-			'?value wikibase:timeValue ?time.',
-			'?value wikibase:timePrecision ?precision.'
+			`OPTIONAL { ${propVar} wikibase:rank ?rank. }`,
+			`${valueVar} wikibase:timeValue ?time.`,
+			`${valueVar} wikibase:timePrecision ?precision.`
 		]
 
 		//TODO: prevent injection
@@ -198,10 +199,10 @@ const wikidata = module.exports = {
 	{
 		//TODO: caching
 
-		const itemVarName = "itemVar"
+		const itemVarName = "_node"
 		const itemVar = `?${itemVarName}`
 		templateItem.entity = itemVar
-		const itemQueryTerm = this.getQueryTerm(templateItem.itemQuery, itemVar, templateItem)
+		const itemQueryTerm = this.getQueryTerm(templateItem.itemQuery, templateItem)
 
 		var outParams = [ itemVar, itemVar + "Label" ]
 		var queryTerms = [ itemQueryTerm, `SERVICE wikibase:label { bd:serviceParam wikibase:language "${this.lang}". }` ]
@@ -219,7 +220,10 @@ const wikidata = module.exports = {
 			delete newItem.comment
 			delete newItem.itemQuery
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
-			newItem.label = binding[itemVarName + "Label"].value
+			const wikidataLabel = binding[itemVarName + "Label"].value
+			newItem.label = templateItem.label !== undefined
+				? templateItem.label.replace("{_LABEL}", wikidataLabel)
+				: wikidataLabel;
 			newItems.push(newItem)
 		}
 
