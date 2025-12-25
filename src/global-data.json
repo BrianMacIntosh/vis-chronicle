@@ -7,7 +7,11 @@
 		"inception": "{entity} p:P571 ?_prop. ?_prop psv:P571 ?_value.",
 		"dissolved": "{entity} p:P576 ?_prop. ?_prop psv:P576 ?_value.",
 
-		"positionHeldStartEnd": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}; pqv:P580 ?_value_s; pqv:P582 ?_value_e."
+		"positionHeldStartEnd": {
+			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}.",
+			"start": "?_prop pqv:P580 ?_value_s.",
+			"end": "?_prop pqv:P582 ?_value_e."
+		}
 	},
 	"expectations":
 	[

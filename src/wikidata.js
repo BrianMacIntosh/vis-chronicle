@@ -87,35 +87,54 @@ const wikidata = module.exports = {
 		})
 	},
 
-	// dereferences the query term if it's a pointer to a template
+	getQueryTemplate: function(templateName)
+	{
+		if (this.inputSpec.queryTemplates && this.inputSpec.queryTemplates[templateName])
+		{
+			return this.inputSpec.queryTemplates[templateName]
+		}
+		else if (globalData && globalData.queryTemplates && globalData.queryTemplates[templateName])
+		{
+			return globalData.queryTemplates[templateName]
+		}
+		else
+		{
+			return undefined
+		}
+	},
+
+	postprocessQueryTerm: function(term, item)
+	{
+		// replace query wildcards
+		for (const key in item)
+		{
+			var insertValue = item[key]
+			if (typeof insertValue === "string" && insertValue.startsWith("Q"))
+				insertValue = "wd:" + insertValue
+			term = term.replaceAll(`{${key}}`, insertValue)
+		}
+		//TODO: detect unreplaced wildcards
+
+		// terminate term
+		if (!term.trim().endsWith("."))
+		{
+			term += "."
+		}
+
+		return term
+	},
+
+	// Dereferences the query term if it's a pointer to a template.
+	// Expects simple string terms (start or end)
 	getQueryTerm: function(queryTerm, item)
 	{
 		if (queryTerm.startsWith("#"))
 		{
 			const templateName = queryTerm.substring(1).trim()
-
-			var queryTemplate;
-			if (this.inputSpec.queryTemplates && this.inputSpec.queryTemplates[templateName])
-			{
-				queryTemplate = this.inputSpec.queryTemplates[templateName]
-			}
-			else (globalData && globalData.queryTemplates && globalData.queryTemplates[templateName])
-			{
-				queryTemplate = globalData.queryTemplates[templateName]
-			}
-
+			var queryTemplate = this.getQueryTemplate(templateName);
 			if (queryTemplate)
 			{
 				queryTerm = queryTemplate
-				
-				// replace query wildcards
-				for (const key in item)
-				{
-					var insertValue = item[key]
-					if (typeof insertValue === "string" && insertValue.startsWith("Q"))
-						insertValue = "wd:" + insertValue
-					queryTerm = queryTerm.replaceAll(`{${key}}`, insertValue)
-				}
 			}
 			else
 			{
@@ -123,13 +142,33 @@ const wikidata = module.exports = {
 			}
 		}
 		
-		//TODO: detect unreplaced wildcards
-
-		if (!queryTerm.trim().endsWith("."))
-		{
-			queryTerm += "."
-		}
+		queryTerm = this.postprocessQueryTerm(queryTerm, item)
 		return queryTerm
+	},
+
+	// Dereferences the query term if it's a pointer to a template.
+	// Expects hybrid start/end terms.
+	getQueryTerm2: function(queryTerm, item)
+	{
+		if (queryTerm.startsWith("#"))
+		{
+			const templateName = queryTerm.substring(1).trim()
+			var queryTemplate = this.getQueryTemplate(templateName);
+			if (queryTemplate)
+			{
+				queryTerm = queryTemplate
+			}
+			else
+			{
+				throw `Query template '${templateName}' not found (on item ${item.id}).`
+			}
+		}
+		
+		return {
+			general: this.postprocessQueryTerm(queryTerm.general, item),
+			start: this.postprocessQueryTerm(queryTerm.start, item),
+			end: this.postprocessQueryTerm(queryTerm.end, item)
+		}
 	},
 
 	extractQidFromUrl: function(url)
@@ -175,7 +214,7 @@ const wikidata = module.exports = {
 	},
 
 	// runs a SPARQL query term for a time value (after wrapping it in the appropriate boilerplate)
-	runTimeQueryTerm: async function (queryTerm, item)
+	runTimeQueryTerm: async function (queryTermStr, item)
 	{
 		const readTimeFromBindings = function(bindings, index)
 		{
@@ -185,13 +224,14 @@ const wikidata = module.exports = {
 			}
 		}
 
-		queryTerm = this.getQueryTerm(queryTerm, item)
+		queryTerm = this.getQueryTerm(queryTermStr, item)
 
 		// read cache
-		if (!this.skipCache && this.cache[queryTerm])
+		const cacheKey = queryTerm //TODO: should probably be the full query so it invalidates for code changes
+		if (!this.skipCache && this.cache[cacheKey])
 		{
 			console.log("\tTerm cache hit.")
-			return this.cache[queryTerm]
+			return this.cache[cacheKey]
 		}
 		
 		const propVar = '?_prop'
@@ -233,36 +273,40 @@ const wikidata = module.exports = {
 			result = readTimeFromBindings(lastBindings, 0)
 		}
 
-		this.cache[queryTerm] = result;
+		this.cache[cacheKey] = result;
 		return result;
 	},
 
 	// runs a SPARQL query term for start and end time values (after wrapping it in the appropriate boilerplate)
-	runTimeQueryTerm2: async function (queryTerm, item)
+	runTimeQueryTerm2: async function (queryTermStr, item)
 	{
 		const readStartEndFromBindings = function(bindings, index)
 		{
-			return {
-				start: {
+			const result = {}
+			if (bindings[index][timeStartVarName])
+			{
+				result.start = {
 					value: bindings[index][timeStartVarName].value,
 					precision: parseInt(bindings[index][precisionStartVarName].value)
-				},
-				end: {
+				}
+			}
+			if (bindings[index][timeEndVarName])
+			{
+				result.end = {
 					value: bindings[index][timeEndVarName].value,
 					precision: parseInt(bindings[index][precisionEndVarName].value)
 				}
 			}
+			return result
 		}
 
-		queryTerm = this.getQueryTerm(queryTerm, item)
-
-		// read cache
-		if (!this.skipCache && this.cache2[queryTerm])
+		queryTerm = this.getQueryTerm2(queryTermStr, item)
+		if (!queryTerm.general || !queryTerm.start || !queryTerm.end)
 		{
-			console.log("\tTerm cache 2 hit.")
-			return this.cache2[queryTerm]
+			console.warn(`\tQuery term '${queryTermStr}' is not a start/end query.`)
+			return null
 		}
-		
+
 		const propVar = '?_prop'
 		const valueStartVar = '?_value_s'
 		const valueEndVar = '?_value_e'
@@ -277,16 +321,22 @@ const wikidata = module.exports = {
 		const precisionEndVar = `?${precisionEndVarName}`
 
 		var outParams = [ timeStartVar, precisionStartVar, timeEndVar, precisionEndVar, rankVar ]
-		var queryTerms = [ queryTerm,
+		var queryTerms = [ queryTerm.general,
 			`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`,
-			`${valueStartVar} wikibase:timeValue ${timeStartVar}.`,
-			`${valueStartVar} wikibase:timePrecision ${precisionStartVar}.`,
-			`${valueEndVar} wikibase:timeValue ${timeEndVar}.`,
-			`${valueEndVar} wikibase:timePrecision ${precisionEndVar}.`,
+			`OPTIONAL { ${queryTerm.start} ${valueStartVar} wikibase:timeValue ${timeStartVar}. ${valueStartVar} wikibase:timePrecision ${precisionStartVar}. }`,
+			`OPTIONAL { ${queryTerm.end} ${valueEndVar} wikibase:timeValue ${timeEndVar}. ${valueEndVar} wikibase:timePrecision ${precisionEndVar}. }`,
 		]
 
 		const query = this.createQuery(outParams, queryTerms)
 
+		// read cache
+		const cacheKey = query
+		if (!this.skipCache && this.cache2[cacheKey])
+		{
+			console.log("\tTerm cache 2 hit.")
+			return this.cache2[cacheKey]
+		}
+		
 		const data = await this.runQuery(query)
 		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
 
@@ -309,7 +359,7 @@ const wikidata = module.exports = {
 			result = readStartEndFromBindings(lastBindings, 0)
 		}
 
-		this.cache2[queryTerm] = result;
+		this.cache2[cacheKey] = result;
 		return result;
 	},
 

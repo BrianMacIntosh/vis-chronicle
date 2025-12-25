@@ -227,7 +227,7 @@ entryPoint()
 	for (var i = inputSpec.items.length - 1; i >= 0; --i)
 	{
 		var templateItem = inputSpec.items[i]
-		if (templateItem.itemQuery)
+		if (templateItem.itemQuery) //TODO: caching for item queries
 		{
 			inputSpec.items.splice(i, 1)
 			const newItems = await wikidata.createTemplateItems(templateItem)

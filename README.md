@@ -68,6 +68,9 @@ Item properties:
 * `startQuery`: A SPARQL query segment that selects the desired start time of the object. These should select Wikidata properties (not statements or values). Can be a query term like `{entity} p:P569 ?_prop. ?_prop psv:P569 ?_value.` or a template query like `#dateOfBirth`.
 * `endQuery`: Same as `startQuery`, but for the end time.
 * `startEndQuery`: Use instead of `startQuery` and `endQuery` separately if the start and end times are from qualifiers. This guarantees they will be drawn from the same statement.
+    * `general`: General query segment, usually for selecting the item and property.
+	* `start`: Query segment for selecting the start value.
+	* `end`: Query segment for selecting the end value.
 * `expectedDuration`: Describes the expected duration, for hinting if the start or end is missing.
     * `min`: The absolute minimum duration.
 	* `max`: The absolute maximum duration.
