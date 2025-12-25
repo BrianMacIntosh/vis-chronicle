@@ -218,15 +218,7 @@ async function entryPoint() {}
 entryPoint()
 .then(async () => {
 
-	// load the wikidata cache
-	try
-	{
-		await wikidata.readCache();
-	}
-	catch
-	{
-		// cache doesn't exist or is invalid; continue without it
-	}
+	await wikidata.readCache();
 
 })
 .then(async () => {
@@ -303,10 +295,19 @@ entryPoint()
 
 		//TODO: batch queries on the same item
 
-		if (item.startQuery)
-			item.start = await wikidata.runTimeQueryTerm(item.startQuery, item)
-		if (item.endQuery)
-			item.end = await wikidata.runTimeQueryTerm(item.endQuery, item)
+		if (item.startEndQuery)
+		{
+			const result = await wikidata.runTimeQueryTerm2(item.startEndQuery, item)
+			item.start = result.start
+			item.end = result.end
+		}
+		else
+		{
+			if (item.startQuery)
+				item.start = await wikidata.runTimeQueryTerm(item.startQuery, item)
+			if (item.endQuery)
+				item.end = await wikidata.runTimeQueryTerm(item.endQuery, item)
+		}
 		item.finished = true
 	}
 

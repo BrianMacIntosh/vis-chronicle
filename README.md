@@ -28,14 +28,14 @@ This specification file generates a timeline containing the lifespans of every U
 	},
 	"queryTemplates":
 	{
-		"dateOfBirth": "{entity} p:P569 {_OUT}.",
-		"dateOfDeath": "{entity} p:P570 {_OUT}."
+		"dateOfBirth": "{entity} p:P569 ?_prop. ?_prop psv:P569 ?_value.",
+		"dateOfDeath": "{entity} p:P570 ?_prop. ?_prop psv:P570 ?_value."
 	},
 	"items":
 	[
 		{
 			"comment": "All United States presidents",
-			"itemQuery": "{_OUT} wdt:P39 wd:Q11696. {_OUT} wdt:P31 wd:Q5.",
+			"itemQuery": "?_node wdt:P39 wd:Q11696. ?_node wdt:P31 wd:Q5.",
 			"group": "presidents",
 
 			"startQuery": "#dateOfBirth",
@@ -61,12 +61,13 @@ This specification file generates a timeline containing the lifespans of every U
 
 Item properties:
 * `label`: Literal items only. Display label for the item. Can contain HTML. For generators, `{_LABEL}` will be replaced by the Wikidata label.
-* `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `{_OUT}` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
+* `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `?_node` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
 * `group`: The vis-timeline group to put the item(s) in.
 * `className`: CSS class to apply to the timeline div.
 * `type`: vis-timeline type of the item.
-* `startQuery`: A SPARQL query segment that selects the desired start time of the object. These should select Wikidata properties (not statements or values). Can be a query term like `Q5335019 p:P569 {_OUT}.` or a template query like `#dateOfBirth`.
+* `startQuery`: A SPARQL query segment that selects the desired start time of the object. These should select Wikidata properties (not statements or values). Can be a query term like `{entity} p:P569 ?_prop. ?_prop psv:P569 ?_value.` or a template query like `#dateOfBirth`.
 * `endQuery`: Same as `startQuery`, but for the end time.
+* `startEndQuery`: Use instead of `startQuery` and `endQuery` separately if the start and end times are from qualifiers. This guarantees they will be drawn from the same statement.
 * `expectedDuration`: Describes the expected duration, for hinting if the start or end is missing.
     * `min`: The absolute minimum duration.
 	* `max`: The absolute maximum duration.

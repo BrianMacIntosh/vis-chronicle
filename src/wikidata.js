@@ -9,9 +9,11 @@ const wikidata = module.exports = {
 	inputSpec: null,
 	verboseLogging: false,
 
-	cache: {},
+	cache: {}, // caches single-time queries
+	cache2: {}, // caches hybrid start/end time queries
 	skipCache: false,
 	termCacheFile: "intermediate/wikidata-term-cache.json",
+	termCache2File: "intermediate/wikidata-term-cache2.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
 	lang: "en,mul",
@@ -19,16 +21,6 @@ const wikidata = module.exports = {
 	rankDeprecated: "http://wikiba.se/ontology#DeprecatedRank",
 	rankNormal: "http://wikiba.se/ontology#NormalRank",
 	rankPreferred: "http://wikiba.se/ontology#PreferredRank",
-
-	// Sequential list of filters to narrow down a list of bindings to the best result
-	bindingFilters: [
-		(binding, index, array) => {
-			return binding.rank.value != wikidata.rankDeprecated;
-		},
-		(binding, index, array) => {
-			return binding.rank.value === wikidata.rankPreferred;
-		},
-	],
 
 	initialize: function()
 	{
@@ -53,18 +45,43 @@ const wikidata = module.exports = {
 
 	readCache: async function()
 	{
-		const contents = await fs.promises.readFile(this.termCacheFile)
-		this.cache = JSON.parse(contents)
+		try
+		{
+			const contents = await fs.promises.readFile(this.termCacheFile)
+			this.cache = JSON.parse(contents)
+		}
+		catch
+		{
+			// cache doesn't exist or is invalid; continue without it
+		}
+
+		try
+		{
+			const contents2 = await fs.promises.readFile(this.termCache2File)
+			this.cache2 = JSON.parse(contents2)
+		}
+		catch
+		{
+			// cache doesn't exist or is invalid; continue without it
+		}
 	},
 
 	writeCache: async function()
 	{
 		await mypath.ensureDirectoryForFile(this.termCacheFile)
 
-		// write the wikidata cache
 		fs.writeFile(this.termCacheFile, JSON.stringify(this.cache), err => {
 			if (err) {
 				console.error(`Error writing wikidata cache:`)
+				console.error(err)
+			}
+		})
+
+		await mypath.ensureDirectoryForFile(this.termCache2File)
+
+		fs.writeFile(this.termCache2File, JSON.stringify(this.cache2), err => {
+			if (err) {
+				console.error(`Error writing wikidata cache 2:`)
 				console.error(err)
 			}
 		})
@@ -90,14 +107,14 @@ const wikidata = module.exports = {
 			if (queryTemplate)
 			{
 				queryTerm = queryTemplate
-
+				
 				// replace query wildcards
 				for (const key in item)
 				{
 					var insertValue = item[key]
 					if (typeof insertValue === "string" && insertValue.startsWith("Q"))
 						insertValue = "wd:" + insertValue
-					queryTerm = queryTerm.replace(`{${key}}`, insertValue)
+					queryTerm = queryTerm.replaceAll(`{${key}}`, insertValue)
 				}
 			}
 			else
@@ -124,9 +141,50 @@ const wikidata = module.exports = {
 			return url
 	},
 
+	createQuery: function(outParams, queryTerms)
+	{
+		//TODO: prevent injection
+		return `SELECT ${outParams.join(" ")} WHERE{${queryTerms.join(" ")}}`
+	},
+
+	// Sequential list of filters to narrow down a list of bindings to the best result
+	bindingFilters: [
+		(binding, index, array) => {
+			return binding.rank.value != wikidata.rankDeprecated;
+		},
+		(binding, index, array) => {
+			return binding.rank.value === wikidata.rankPreferred;
+		},
+	],
+
+	// From the specified set of bindings, returns only the best ones to use
+	filterBestBindings: function(inBindings)
+	{
+		// filter the values down until there are none
+		var lastBindings = inBindings.slice()
+		for (const filter of this.bindingFilters)
+		{
+			workingBindings = lastBindings.filter(filter)
+			if (workingBindings.length == 0)
+			{
+				break
+			}
+			lastBindings = workingBindings
+		}
+		return lastBindings
+	},
+
 	// runs a SPARQL query term for a time value (after wrapping it in the appropriate boilerplate)
 	runTimeQueryTerm: async function (queryTerm, item)
 	{
+		const readTimeFromBindings = function(bindings, index)
+		{
+			return {
+				value: bindings[index][timeVarName].value,
+				precision: parseInt(bindings[index][precisionVarName].value)
+			}
+		}
+
 		queryTerm = this.getQueryTerm(queryTerm, item)
 
 		// read cache
@@ -138,17 +196,20 @@ const wikidata = module.exports = {
 		
 		const propVar = '?_prop'
 		const valueVar = '?_value'
+		const rankVar = '?rank'
+		const timeVarName = 'time'
+		const timeVar = `?${timeVarName}`
+		const precisionVarName = 'precision'
+		const precisionVar = `?${precisionVarName}`
 
-		var outParams = [ '?time', '?precision', '?rank' ]
-		var queryTerms = [
-			queryTerm,
-			`OPTIONAL { ${propVar} wikibase:rank ?rank. }`,
-			`${valueVar} wikibase:timeValue ?time.`,
-			`${valueVar} wikibase:timePrecision ?precision.`
+		var outParams = [ timeVar, precisionVar, rankVar ]
+		var queryTerms = [ queryTerm,
+			`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`,
+			`${valueVar} wikibase:timeValue ${timeVar}.`,
+			`${valueVar} wikibase:timePrecision ${precisionVar}.`
 		]
 
-		//TODO: prevent injection
-		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`
+		const query = this.createQuery(outParams, queryTerms)
 
 		const data = await this.runQuery(query)
 		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
@@ -160,37 +221,95 @@ const wikidata = module.exports = {
 		}
 		else if (data.results.bindings.length == 1)
 		{
-			result = {
-				value: data.results.bindings[0].time.value,
-				precision: parseInt(data.results.bindings[0].precision.value)
-			}
+			result = readTimeFromBindings(data.results.bindings, 0)
 		}
 		else // data.results.bindings.length > 1
 		{
-			// filter the values down until there are none
-			var lastBindings = data.results.bindings.slice()
-			for (const filter of this.bindingFilters)
-			{
-				workingBindings = lastBindings.filter(filter)
-				if (workingBindings.length == 0)
-				{
-					break
-				}
-				lastBindings = workingBindings
-			}
-			
+			var lastBindings = this.filterBestBindings(data.results.bindings)
 			if (lastBindings.length > 1)
 			{
 				console.warn("\tQuery returned multiple equally-preferred values.")
 			}
-
-			result = {
-				value: lastBindings[0].time.value,
-				precision: parseInt(lastBindings[0].precision.value)
-			}
+			result = readTimeFromBindings(lastBindings, 0)
 		}
 
 		this.cache[queryTerm] = result;
+		return result;
+	},
+
+	// runs a SPARQL query term for start and end time values (after wrapping it in the appropriate boilerplate)
+	runTimeQueryTerm2: async function (queryTerm, item)
+	{
+		const readStartEndFromBindings = function(bindings, index)
+		{
+			return {
+				start: {
+					value: bindings[index][timeStartVarName].value,
+					precision: parseInt(bindings[index][precisionStartVarName].value)
+				},
+				end: {
+					value: bindings[index][timeEndVarName].value,
+					precision: parseInt(bindings[index][precisionEndVarName].value)
+				}
+			}
+		}
+
+		queryTerm = this.getQueryTerm(queryTerm, item)
+
+		// read cache
+		if (!this.skipCache && this.cache2[queryTerm])
+		{
+			console.log("\tTerm cache 2 hit.")
+			return this.cache2[queryTerm]
+		}
+		
+		const propVar = '?_prop'
+		const valueStartVar = '?_value_s'
+		const valueEndVar = '?_value_e'
+		const rankVar = '?rank'
+		const timeStartVarName = 'time_s'
+		const timeStartVar = `?${timeStartVarName}`
+		const precisionStartVarName = 'precision_s'
+		const precisionStartVar = `?${precisionStartVarName}`
+		const timeEndVarName = 'time_e'
+		const timeEndVar = `?${timeEndVarName}`
+		const precisionEndVarName = 'precision_e'
+		const precisionEndVar = `?${precisionEndVarName}`
+
+		var outParams = [ timeStartVar, precisionStartVar, timeEndVar, precisionEndVar, rankVar ]
+		var queryTerms = [ queryTerm,
+			`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`,
+			`${valueStartVar} wikibase:timeValue ${timeStartVar}.`,
+			`${valueStartVar} wikibase:timePrecision ${precisionStartVar}.`,
+			`${valueEndVar} wikibase:timeValue ${timeEndVar}.`,
+			`${valueEndVar} wikibase:timePrecision ${precisionEndVar}.`,
+		]
+
+		const query = this.createQuery(outParams, queryTerms)
+
+		const data = await this.runQuery(query)
+		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
+
+		var result;
+		if (data.results.bindings.length <= 0)
+		{
+			result = {}
+		}
+		else if (data.results.bindings.length == 1)
+		{
+			result = readStartEndFromBindings(data.results.bindings, 0)
+		}
+		else // data.results.bindings.length > 1
+		{
+			var lastBindings = this.filterBestBindings(data.results.bindings)
+			if (lastBindings.length > 1)
+			{
+				console.warn("\tQuery returned multiple equally-preferred values.")
+			}
+			result = readStartEndFromBindings(lastBindings, 0)
+		}
+
+		this.cache2[queryTerm] = result;
 		return result;
 	},
 
@@ -222,7 +341,7 @@ const wikidata = module.exports = {
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
 			const wikidataLabel = binding[itemVarName + "Label"].value
 			newItem.label = templateItem.label !== undefined
-				? templateItem.label.replace("{_LABEL}", wikidataLabel)
+				? templateItem.label.replaceAll("{_LABEL}", wikidataLabel)
 				: wikidataLabel;
 			newItems.push(newItem)
 		}
