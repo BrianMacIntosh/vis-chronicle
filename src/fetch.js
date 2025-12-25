@@ -173,13 +173,18 @@ function produceOutput(items)
 					outputItem.end = moment()
 				}
 
+				const actualDuration = moment.duration(outputItem.end.diff(outputItem.start))
+				const excessDuration = expectation.duration.max
+					? moment.duration(expectation.duration.max).subtract(actualDuration)
+					: moment.duration(expectation.duration.avg).subtract(actualDuration) //TODO: multiply by some factor?
+
 				// add a "tail" item after the end
 				outputObject.items.push({
 					id: outputItem.id + "-tail",
 					className: [outputItem.className, "visc-right-tail"].join(' '),
 					content: item.label ? "&nbsp;" : "",
 					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
-					end: outputItem.end.clone().add(moment.duration("P20Y")).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
+					end: outputItem.end.clone().add(excessDuration).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
 					group: item.group,
 					subgroup: item.entity
 				})
