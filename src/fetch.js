@@ -177,7 +177,7 @@ function produceOutput(items)
 				outputObject.items.push({
 					id: outputItem.id + "-tail",
 					className: [outputItem.className, "visc-right-tail"].join(' '),
-					content: "&nbsp;",
+					content: item.label ? "&nbsp;" : "",
 					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
 					end: outputItem.end.clone().add(moment.duration("P20Y")).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
 					group: item.group,
