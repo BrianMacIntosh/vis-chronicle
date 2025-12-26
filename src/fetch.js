@@ -186,7 +186,7 @@ function produceOutput(items)
 					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
 					end: outputItem.end.clone().add(excessDuration).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
 					group: item.group,
-					subgroup: item.entity
+					subgroup: item.subgroup ? item.subgroup : item.entity
 				})
 
 				outputItem.className = [ outputItem.className, 'visc-right-withtail' ].join(' ')
@@ -210,7 +210,7 @@ function produceOutput(items)
 		if (item.group)
 		{
 			outputItem.group = item.group
-			outputItem.subgroup = item.entity
+			outputItem.subgroup = item.subgroup ? item.subgroup : item.entity
 		}
 		
 		outputObject.items.push(outputItem)
