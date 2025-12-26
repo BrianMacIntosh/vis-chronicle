@@ -7,15 +7,24 @@
 		"inception": "{entity} p:P571 ?_prop. ?_prop psv:P571 ?_value.",
 		"dissolved": "{entity} p:P576 ?_prop. ?_prop psv:P576 ?_value.",
 
+		"startTime": "{entity} p:P580 ?_prop. ?_prop psv:P580 ?_value.",
+		"endTime": "{entity} p:P582 ?_prop. ?_prop psv:P582 ?_value.",
+
 		"positionHeldStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}.",
+			"start": "?_prop pqv:P580 ?_value_s.",
+			"end": "?_prop pqv:P582 ?_value_e."
+		},
+		"positionJurisdictionHeldStartEnd": {
+			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}; pq:P1001 {jurisdiction}.",
 			"start": "?_prop pqv:P580 ?_value_s.",
 			"end": "?_prop pqv:P582 ?_value_e."
 		}
 	},
 	"itemQueryTemplates":
 	{
-		"humansWithPosition": "?_node wdt:P39 {position}. ?_node wdt:P31 wd:Q5."
+		"humansWithPosition": "?_node wdt:P39 {position}. ?_node wdt:P31 wd:Q5.",
+		"humansWithPositionJurisdiction": "?_node p:P39 [ ps:P39 {position}; pq:P1001 {jurisdiction} ]. ?_node wdt:P31 wd:Q5."
 	},
 	"expectations":
 	[
