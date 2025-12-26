@@ -87,15 +87,17 @@ const wikidata = module.exports = {
 		})
 	},
 
-	getQueryTemplate: function(templateName)
+	getQueryTemplate: function(templateName, templateSetName)
 	{
-		if (this.inputSpec.queryTemplates && this.inputSpec.queryTemplates[templateName])
+		assert(templateName)
+		assert(templateSetName)
+		if (this.inputSpec[templateSetName] && this.inputSpec[templateSetName][templateName])
 		{
-			return this.inputSpec.queryTemplates[templateName]
+			return this.inputSpec[templateSetName][templateName]
 		}
-		else if (globalData && globalData.queryTemplates && globalData.queryTemplates[templateName])
+		else if (globalData && globalData[templateSetName] && globalData[templateSetName][templateName])
 		{
-			return globalData.queryTemplates[templateName]
+			return globalData[templateSetName][templateName]
 		}
 		else
 		{
@@ -126,12 +128,12 @@ const wikidata = module.exports = {
 
 	// Dereferences the query term if it's a pointer to a template.
 	// Expects simple string terms (start or end)
-	getQueryTerm: function(queryTerm, item)
+	getQueryTermHelper: function(queryTerm, item, tempateSetName)
 	{
 		if (queryTerm.startsWith("#"))
 		{
 			const templateName = queryTerm.substring(1).trim()
-			var queryTemplate = this.getQueryTemplate(templateName);
+			var queryTemplate = this.getQueryTemplate(templateName, tempateSetName);
 			if (queryTemplate)
 			{
 				queryTerm = queryTemplate
@@ -141,19 +143,35 @@ const wikidata = module.exports = {
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
+
+		//TODO: validate query has required wildcards
 		
 		queryTerm = this.postprocessQueryTerm(queryTerm, item)
 		return queryTerm
 	},
 
 	// Dereferences the query term if it's a pointer to a template.
+	// Expects simple string terms (start or end)
+	getValueQueryTerm: function(queryTerm, item)
+	{
+		return this.getQueryTermHelper(queryTerm, item, "queryTemplates")
+	},
+
+	// Dereferences the query term if it's a pointer to a template.
+	// Expects item-generating terms
+	getItemQueryTerm: function(queryTerm, item)
+	{
+		return this.getQueryTermHelper(queryTerm, item, "itemQueryTemplates")
+	},
+
+	// Dereferences the query term if it's a pointer to a template.
 	// Expects hybrid start/end terms.
-	getQueryTerm2: function(queryTerm, item)
+	getValueQueryTerm2: function(queryTerm, item)
 	{
 		if (queryTerm.startsWith("#"))
 		{
 			const templateName = queryTerm.substring(1).trim()
-			var queryTemplate = this.getQueryTemplate(templateName);
+			var queryTemplate = this.getQueryTemplate(templateName, "queryTemplates");
 			if (queryTemplate)
 			{
 				queryTerm = queryTemplate
@@ -224,7 +242,7 @@ const wikidata = module.exports = {
 			}
 		}
 
-		queryTerm = this.getQueryTerm(queryTermStr, item)
+		queryTerm = this.getValueQueryTerm(queryTermStr, item)
 
 		// read cache
 		const cacheKey = queryTerm //TODO: should probably be the full query so it invalidates for code changes
@@ -300,7 +318,7 @@ const wikidata = module.exports = {
 			return result
 		}
 
-		queryTerm = this.getQueryTerm2(queryTermStr, item)
+		queryTerm = this.getValueQueryTerm2(queryTermStr, item)
 		if (!queryTerm.general || !queryTerm.start || !queryTerm.end)
 		{
 			console.warn(`\tQuery term '${queryTermStr}' is not a start/end query.`)
@@ -371,7 +389,7 @@ const wikidata = module.exports = {
 		const itemVarName = "_node"
 		const itemVar = `?${itemVarName}`
 		templateItem.entity = itemVar
-		const itemQueryTerm = this.getQueryTerm(templateItem.itemQuery, templateItem)
+		const itemQueryTerm = this.getItemQueryTerm(templateItem.itemQuery, templateItem)
 
 		var outParams = [ itemVar, itemVar + "Label" ]
 		var queryTerms = [ itemQueryTerm, `SERVICE wikibase:label { bd:serviceParam wikibase:language "${this.lang}". }` ]

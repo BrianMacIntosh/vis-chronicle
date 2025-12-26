@@ -13,6 +13,10 @@
 			"end": "?_prop pqv:P582 ?_value_e."
 		}
 	},
+	"itemQueryTemplates":
+	{
+		"humansWithPosition": "?_node wdt:P39 {position}. ?_node wdt:P31 wd:Q5."
+	},
 	"expectations":
 	[
 		{
