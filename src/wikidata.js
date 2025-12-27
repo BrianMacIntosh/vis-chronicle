@@ -9,11 +9,9 @@ const wikidata = module.exports = {
 	inputSpec: null,
 	verboseLogging: false,
 
-	cache: {}, // caches single-time queries
-	cache2: {}, // caches hybrid start/end time queries
+	cache: {},
 	skipCache: false,
 	termCacheFile: "intermediate/wikidata-term-cache.json",
-	termCache2File: "intermediate/wikidata-term-cache2.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
 	lang: "en,mul",
@@ -54,16 +52,6 @@ const wikidata = module.exports = {
 		{
 			// cache doesn't exist or is invalid; continue without it
 		}
-
-		try
-		{
-			const contents2 = await fs.promises.readFile(this.termCache2File)
-			this.cache2 = JSON.parse(contents2)
-		}
-		catch
-		{
-			// cache doesn't exist or is invalid; continue without it
-		}
 	},
 
 	writeCache: async function()
@@ -73,15 +61,6 @@ const wikidata = module.exports = {
 		fs.writeFile(this.termCacheFile, JSON.stringify(this.cache), err => {
 			if (err) {
 				console.error(`Error writing wikidata cache:`)
-				console.error(err)
-			}
-		})
-
-		await mypath.ensureDirectoryForFile(this.termCache2File)
-
-		fs.writeFile(this.termCache2File, JSON.stringify(this.cache2), err => {
-			if (err) {
-				console.error(`Error writing wikidata cache 2:`)
 				console.error(err)
 			}
 		})
@@ -156,13 +135,6 @@ const wikidata = module.exports = {
 	},
 
 	// Dereferences the query term if it's a pointer to a template.
-	// Expects simple string terms (start or end)
-	getValueQueryTerm: function(queryTerm, item)
-	{
-		return this.getQueryTermHelper(queryTerm, item, "queryTemplates")
-	},
-
-	// Dereferences the query term if it's a pointer to a template.
 	// Expects item-generating terms
 	getItemQueryTerm: function(queryTerm, item)
 	{
@@ -170,10 +142,9 @@ const wikidata = module.exports = {
 	},
 
 	// Dereferences the query term if it's a pointer to a template.
-	// Expects hybrid start/end terms.
-	getValueQueryTerm2: function(queryTerm, item)
+	getValueQueryTerm: function(queryTerm, item)
 	{
-		if (queryTerm.startsWith("#"))
+		if (queryTerm.startsWith && queryTerm.startsWith("#"))
 		{
 			const templateName = queryTerm.substring(1).trim()
 			var queryTemplate = this.getQueryTemplate(templateName, "queryTemplates");
@@ -186,15 +157,23 @@ const wikidata = module.exports = {
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
-		
-		return {
-			general: this.postprocessQueryTerm(queryTerm.general, item),
-			start: this.postprocessQueryTerm(queryTerm.start, item),
-			start_min: this.postprocessQueryTerm(queryTerm.start_min, item),
-			start_max: this.postprocessQueryTerm(queryTerm.start_max, item),
-			end: this.postprocessQueryTerm(queryTerm.end, item),
-			end_min: this.postprocessQueryTerm(queryTerm.end_min, item),
-			end_max: this.postprocessQueryTerm(queryTerm.end_max, item),
+
+		if (typeof queryTerm === 'string' || queryTerm instanceof String)
+		{
+			return {
+				value: this.postprocessQueryTerm(queryTerm, item),
+				min: "?_prop pqv:P1319 ?_min_value.",
+				max: "?_prop pqv:P1326 ?_max_value."
+			}
+		}
+		else
+		{
+			const result = {}
+			for (const key in queryTerm)
+			{
+				result[key] = this.postprocessQueryTerm(queryTerm[key], item)
+			}
+			return result
 		}
 	},
 
@@ -240,73 +219,56 @@ const wikidata = module.exports = {
 		return lastBindings
 	},
 
-	// runs a SPARQL query term for a time value (after wrapping it in the appropriate boilerplate)
+	// runs a SPARQL query term for time values (after wrapping it in the appropriate boilerplate)
 	runTimeQueryTerm: async function (queryTermStr, item)
 	{
-		const readTimeFromBindings = function(bindings, index)
+		queryTerm = this.getValueQueryTerm(queryTermStr, item)
+
+		generateOptionalTimeTerm = function(term, valueVar, timeVar, precisionVar)
 		{
-			return {
-				value: bindings[index][timeVarName].value,
-				precision: parseInt(bindings[index][precisionVarName].value)
+			if (term)
+			{
+				outParams.push(timeVar)
+				outParams.push(precisionVar)
+				queryTerms.push(`OPTIONAL { ${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}. }`)
 			}
 		}
 
-		queryTerm = this.getValueQueryTerm(queryTermStr, item)
+		const propVar = '?_prop'
+		const rankVar = '?rank'
+		
+		var outParams = [ rankVar ]
+		var queryTerms = [ ]
+		if (queryTerm.general)
+		{
+			queryTerms.push(queryTerm.general)
+		}
+		if (queryTerm.value) //TODO: could unify better with loop below?
+		{
+			outParams.push("?_value_ti")
+			outParams.push("?_value_pr")
+			queryTerms.push(`${queryTerm.value} ?_value wikibase:timeValue ?_value_ti. ?_value wikibase:timePrecision ?_value_pr.`)
+		}
+		for (const termKey in queryTerm) //TODO: only pass recognized terms
+		{
+			if (termKey == "general" || termKey == "value") continue
+			generateOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
+		}
+		queryTerms.push(`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`)
+
+		const query = this.createQuery(outParams, queryTerms)
 
 		// read cache
-		const cacheKey = queryTerm //TODO: should probably be the full query so it invalidates for code changes
-		if (!this.skipCache && !item.skipCache && this.cache[cacheKey])
+		const cacheKey = query
+		if (!this.skipCache && !item.skipCache &&this.cache[cacheKey])
 		{
 			//console.log("\tTerm cache hit.")
 			return this.cache[cacheKey]
 		}
 		
-		const propVar = '?_prop'
-		const valueVar = '?_value'
-		const rankVar = '?rank'
-		const timeVarName = 'time'
-		const timeVar = `?${timeVarName}`
-		const precisionVarName = 'precision'
-		const precisionVar = `?${precisionVarName}`
-
-		var outParams = [ timeVar, precisionVar, rankVar ]
-		var queryTerms = [ queryTerm,
-			`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`,
-			`${valueVar} wikibase:timeValue ${timeVar}.`,
-			`${valueVar} wikibase:timePrecision ${precisionVar}.`
-		]
-
-		const query = this.createQuery(outParams, queryTerms)
-
 		const data = await this.runQuery(query)
 		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
 
-		var result;
-		if (data.results.bindings.length <= 0)
-		{
-			result = {}
-		}
-		else if (data.results.bindings.length == 1)
-		{
-			result = readTimeFromBindings(data.results.bindings, 0)
-		}
-		else // data.results.bindings.length > 1
-		{
-			var lastBindings = this.filterBestBindings(data.results.bindings)
-			if (lastBindings.length > 1)
-			{
-				console.warn("\tQuery returned multiple equally-preferred values.")
-			}
-			result = readTimeFromBindings(lastBindings, 0)
-		}
-
-		this.cache[cacheKey] = result;
-		return result;
-	},
-
-	// runs a SPARQL query term for start and end time values (after wrapping it in the appropriate boilerplate)
-	runTimeQueryTerm2: async function (queryTermStr, item)
-	{
 		const readBindings = function(bindings, index)
 		{
 			const result = {}
@@ -322,47 +284,6 @@ const wikidata = module.exports = {
 			}
 			return result
 		}
-
-		queryTerm = this.getValueQueryTerm2(queryTermStr, item)
-		if (!queryTerm.general || !queryTerm.start || !queryTerm.end)
-		{
-			console.warn(`\tQuery term '${queryTermStr}' is not a start/end query.`)
-			return null
-		}
-
-		generateOptionalTimeTerm = function(term, valueVar, timeVar, precisionVar)
-		{
-			if (term)
-			{
-				outParams.push(timeVar)
-				outParams.push(precisionVar)
-				queryTerms.push(`OPTIONAL { ${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}. }`)
-			}
-		}
-
-		const propVar = '?_prop'
-		const rankVar = '?rank'
-
-		var outParams = [ rankVar ]
-		var queryTerms = [ queryTerm.general, `OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }` ]
-		for (const termKey in queryTerm) //TODO: only pass recognized terms
-		{
-			if (termKey == "general") continue
-			generateOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
-		}
-
-		const query = this.createQuery(outParams, queryTerms)
-
-		// read cache
-		const cacheKey = query
-		if (!this.skipCache && !item.skipCache &&this.cache2[cacheKey])
-		{
-			//console.log("\tTerm cache 2 hit.")
-			return this.cache2[cacheKey]
-		}
-		
-		const data = await this.runQuery(query)
-		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
 
 		var result;
 		if (data.results.bindings.length <= 0)
@@ -383,7 +304,7 @@ const wikidata = module.exports = {
 			result = readBindings(lastBindings, 0)
 		}
 
-		this.cache2[cacheKey] = result;
+		this.cache[cacheKey] = result;
 		return result;
 	},
 

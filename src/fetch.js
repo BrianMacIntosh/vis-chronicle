@@ -384,7 +384,7 @@ entryPoint()
 
 		if (item.startEndQuery)
 		{
-			const result = await wikidata.runTimeQueryTerm2(item.startEndQuery, item)
+			const result = await wikidata.runTimeQueryTerm(item.startEndQuery, item)
 			item.start = result.start
 			item.end = result.end
 			item.start_min = result.start_min
@@ -395,9 +395,19 @@ entryPoint()
 		else
 		{
 			if (item.startQuery)
-				item.start = await wikidata.runTimeQueryTerm(item.startQuery, item)
+			{
+				const result = await wikidata.runTimeQueryTerm(item.startQuery, item)
+				item.start = result.value;
+				item.start_min = result.min;
+				item.start_max = result.max;
+			}
 			if (item.endQuery)
-				item.end = await wikidata.runTimeQueryTerm(item.endQuery, item)
+			{
+				const result = await wikidata.runTimeQueryTerm(item.endQuery, item)
+				item.end = result.value;
+				item.end_min = result.min;
+				item.end_max = result.max;
+			}
 		}
 		item.finished = true
 	}
