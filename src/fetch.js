@@ -72,7 +72,7 @@ wikidata.initialize()
 // produces a moment from a Wikidata time
 function wikidataToMoment(inTime)
 {
-	if (!inTime.value)
+	if (!inTime || !inTime.value)
 	{
 		// missing value
 		return undefined
@@ -143,81 +143,155 @@ function produceOutput(items)
 			comment: item.comment,
 			type: item.type
 		}
+		outputItem.group = item.group
+		outputItem.subgroup = item.subgroup ? item.subgroup : item.entity
+		
+		// look up duration expectations
+		const expectation = getExpectation(item)
 
-		// convert fetched time to a moment
-		if (item.start)
-			outputItem.start = wikidataToMoment(item.start)
-		if (item.end)
-			outputItem.end = wikidataToMoment(item.end)
+		assert(expectation && expectation.duration && expectation.duration.avg) // expect at least a universal fallback expectation
 
-		// handle missing start or end
-		if (!outputItem.start || !outputItem.end)
+		if (!item.start && !item.end
+			&& !item.start_min && !item.start_max
+			&& !item.end_min && !item.end_max)
 		{
-			// look up duration expectations
-			const expectation = getExpectation(item)
-
-			assert(expectation && expectation.duration && expectation.duration.avg) // expect at least a universal fallback expectation
-
-			if (!outputItem.start && !outputItem.end)
-			{
-				console.warn(`Item ${item.id} has no start or end.`)
-				continue;
-			}
-			else if (!outputItem.end)
-			{
-				const useMax = expectation.duration.max ? expectation.duration.max : moment(expectation.duration.avg.asMilliseconds() * 2)
-				if (outputItem.start.clone().add(useMax) < moment())
-				{
-					// 'max' is less than 'now'; it is likely this duration is not ongoing but has an unknown end
-					//TODO: accomodate wikidata special 'no value'
-					outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
-				}
-				else
-				{
-					// 'now' is within 'max' and so it is a reasonable guess that this duration is ongoing
-					outputItem.end = moment()
-				}
-
-				const avgDuration = moment.duration(expectation.duration.avg) //HACK: TODO: consistently postprocess expectations, or don't
-				const actualDuration = moment.duration(outputItem.end.diff(outputItem.start))
-				var excessDuration = moment.duration(avgDuration.asMilliseconds()).subtract(actualDuration)
-				excessDuration = moment.duration(Math.max(excessDuration.asMilliseconds(), avgDuration.asMilliseconds() * 0.25))
-
-				// add a "tail" item after the end
-				outputObject.items.push({
-					id: outputItem.id + "-tail",
-					className: [outputItem.className, "visc-right-tail"].join(' '),
-					content: item.label ? "&nbsp;" : "",
-					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
-					end: outputItem.end.clone().add(excessDuration).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
-					group: item.group,
-					subgroup: item.subgroup ? item.subgroup : item.entity
-				})
-
-				outputItem.className = [ outputItem.className, 'visc-right-withtail' ].join(' ')
-			}
-			else if (!outputItem.start)
-			{
-				outputItem.start = outputItem.end.clone().subtract(expectation.duration.avg)
-
-				outputItem.className = [outputItem.className, "visc-open-left"].join(' ')
-			}
-			//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
-			//TODO: accept expected durations and place uncertainly before/after those
+			console.warn(`Item ${item.id} has no date data at all.`)
+			continue;
 		}
+		
+		outputItem.start = wikidataToMoment(item.start)
+		outputItem.end = wikidataToMoment(item.end)
+		const start_min = item.start_min ? wikidataToMoment(item.start_min) : outputItem.start
+		const start_max = item.start_max ? wikidataToMoment(item.start_max) : outputItem.start
+		const end_min = item.end_min ? wikidataToMoment(item.end_min) : outputItem.end
+		const end_max = item.end_max ? wikidataToMoment(item.end_max) : outputItem.end
+
+		// no certainty at all
+		if (start_max >= end_min)
+		{
+			outputItem.className = [ outputItem.className, 'visc-uncertain' ].join(' ')
+			outputItem.start = start_min
+			outputItem.end = end_max
+
+			// convert moment to a final string
+			if (outputItem.start)
+				outputItem.start = outputItem.start.format("YYYYYY-MM-DDThh:mm:ss")
+			if (outputItem.end)
+				outputItem.end = outputItem.end.format("YYYYYY-MM-DDThh:mm:ss")
+			outputObject.items.push(outputItem)
+			continue;
+		}
+
+		// handle end date
+		if (end_min && end_max && end_min < end_max)
+		{
+			// uncertain end
+
+			// find lower bound of uncertain region
+			var uncertainMin
+			if (item.end_min)
+				uncertainMin = end_min
+			else if (outputItem.end)
+				uncertainMin = outputItem.end
+			else
+				uncertainMin = outputItem.start //TODO: use min/max start
+			assert(uncertainMin)
+			
+			// add uncertain range
+			outputObject.items.push({
+				id: outputItem.id + "-unc-end",
+				className: [outputItem.className, "visc-uncertain", "visc-left-connection"].join(' '),
+				content: item.label ? "&nbsp;" : "",
+				start: uncertainMin.format("YYYYYY-MM-DDThh:mm:ss"),
+				end: end_max.format("YYYYYY-MM-DDThh:mm:ss"),
+				group: item.group,
+				subgroup: outputItem.subgroup
+			})
+
+			// adjust normal range to match
+			outputItem.end = uncertainMin
+			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+		}
+		else if (!outputItem.end)
+		{
+			// open-ended end
+			const useMax = expectation.duration.max ? expectation.duration.max : moment(expectation.duration.avg.asMilliseconds() * 2)
+			if (outputItem.start.clone().add(useMax) < moment())
+			{
+				// 'max' is less than 'now'; it is likely this duration is not ongoing but has an unknown end
+				//TODO: accomodate wikidata special 'no value'
+				outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
+			}
+			else
+			{
+				// 'now' is within 'max' and so it is a reasonable guess that this duration is ongoing
+				outputItem.end = moment()
+			}
+
+			const avgDuration = moment.duration(expectation.duration.avg) //HACK: TODO: consistently postprocess expectations, or don't
+			const actualDuration = moment.duration(outputItem.end.diff(outputItem.start))
+			var excessDuration = moment.duration(avgDuration.asMilliseconds()).subtract(actualDuration)
+			excessDuration = moment.duration(Math.max(excessDuration.asMilliseconds(), avgDuration.asMilliseconds() * 0.25))
+
+			// add a "tail" item after the end
+			outputObject.items.push({
+				id: outputItem.id + "-tail",
+				className: [outputItem.className, "visc-right-tail"].join(' '),
+				content: item.label ? "&nbsp;" : "",
+				start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
+				end: outputItem.end.clone().add(excessDuration).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
+				group: item.group,
+				subgroup: outputItem.subgroup
+			})
+
+			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+		}
+		
+		// handle start date
+		if (start_min && start_max && start_max > start_min)
+		{
+			// uncertain start
+			
+			// find upper bound of uncertain region
+			var uncertainMax
+			if (item.start_max)
+				uncertainMax = start_max
+			else if (outputItem.start)
+				uncertainMax = outputItem.start
+			else
+				uncertainMax = outputItem.end //TODO: use min/max end
+			assert(uncertainMax)
+
+			// add uncertain range
+			outputObject.items.push({
+				id: outputItem.id + "-unc-start",
+				className: [outputItem.className, "visc-uncertain", "visc-right-connection"].join(' '),
+				content: item.label ? "&nbsp;" : "",
+				start: start_min.format("YYYYYY-MM-DDThh:mm:ss"),
+				end: uncertainMax.format("YYYYYY-MM-DDThh:mm:ss"),
+				group: item.group,
+				subgroup: outputItem.subgroup
+			})
+
+			// adjust normal range to match
+			outputItem.start = uncertainMax
+			outputItem.className = [ outputItem.className, 'visc-left-connection' ].join(' ')
+		}
+		else if (!outputItem.start)
+		{
+			// open-ended start
+			outputItem.start = outputItem.end.clone().subtract(expectation.duration.avg)
+			outputItem.className = [outputItem.className, "visc-open-left"].join(' ')
+		}
+		
+		//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
+		//TODO: accept expected durations and place uncertainly before/after those
 
 		// convert moment to a final string
 		if (outputItem.start)
 			outputItem.start = outputItem.start.format("YYYYYY-MM-DDThh:mm:ss")
 		if (outputItem.end)
 			outputItem.end = outputItem.end.format("YYYYYY-MM-DDThh:mm:ss")
-
-		if (item.group)
-		{
-			outputItem.group = item.group
-			outputItem.subgroup = item.subgroup ? item.subgroup : item.entity
-		}
-		
 		outputObject.items.push(outputItem)
 	}
 	return JSON.stringify(outputObject, undefined, "\t") //TODO: configure space
@@ -310,6 +384,10 @@ entryPoint()
 			const result = await wikidata.runTimeQueryTerm2(item.startEndQuery, item)
 			item.start = result.start
 			item.end = result.end
+			item.start_min = result.start_min
+			item.start_max = result.start_max
+			item.end_min = result.end_min
+			item.end_max = result.end_max
 		}
 		else
 		{

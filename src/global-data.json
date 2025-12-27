@@ -14,13 +14,21 @@
 
 		"positionHeldStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}.",
-			"start": "?_prop pqv:P580 ?_value_s.",
-			"end": "?_prop pqv:P582 ?_value_e."
+			"start": "?_prop pqv:P580 ?_start_value.",
+			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
+			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
+			"end": "?_prop pqv:P582 ?_end_value.",
+			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
+			"end_max": "?_prop pqv:P12506 ?_end_max_value."
 		},
 		"positionJurisdictionHeldStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}; pq:P1001 {jurisdiction}.",
-			"start": "?_prop pqv:P580 ?_value_s.",
-			"end": "?_prop pqv:P582 ?_value_e."
+			"start": "?_prop pqv:P580 ?_start_value.",
+			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
+			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
+			"end": "?_prop pqv:P582 ?_end_value.",
+			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
+			"end_max": "?_prop pqv:P12506 ?_end_max_value."
 		}
 	},
 	"itemQueryTemplates":

@@ -107,6 +107,11 @@ const wikidata = module.exports = {
 
 	postprocessQueryTerm: function(term, item)
 	{
+		if (!term)
+		{
+			return term;
+		}
+
 		// replace query wildcards
 		for (const key in item)
 		{
@@ -185,7 +190,11 @@ const wikidata = module.exports = {
 		return {
 			general: this.postprocessQueryTerm(queryTerm.general, item),
 			start: this.postprocessQueryTerm(queryTerm.start, item),
-			end: this.postprocessQueryTerm(queryTerm.end, item)
+			start_min: this.postprocessQueryTerm(queryTerm.start_min, item),
+			start_max: this.postprocessQueryTerm(queryTerm.start_max, item),
+			end: this.postprocessQueryTerm(queryTerm.end, item),
+			end_min: this.postprocessQueryTerm(queryTerm.end_min, item),
+			end_max: this.postprocessQueryTerm(queryTerm.end_max, item),
 		}
 	},
 
@@ -298,21 +307,17 @@ const wikidata = module.exports = {
 	// runs a SPARQL query term for start and end time values (after wrapping it in the appropriate boilerplate)
 	runTimeQueryTerm2: async function (queryTermStr, item)
 	{
-		const readStartEndFromBindings = function(bindings, index)
+		const readBindings = function(bindings, index)
 		{
 			const result = {}
-			if (bindings[index][timeStartVarName])
+			for (const termKey in queryTerm) //TODO: only use recognized terms
 			{
-				result.start = {
-					value: bindings[index][timeStartVarName].value,
-					precision: parseInt(bindings[index][precisionStartVarName].value)
-				}
-			}
-			if (bindings[index][timeEndVarName])
-			{
-				result.end = {
-					value: bindings[index][timeEndVarName].value,
-					precision: parseInt(bindings[index][precisionEndVarName].value)
+				if (bindings[index][`_${termKey}_ti`])
+				{
+					result[termKey] = {
+						value: bindings[index][`_${termKey}_ti`].value,
+						precision: parseInt(bindings[index][`_${termKey}_pr`].value)
+					}
 				}
 			}
 			return result
@@ -325,25 +330,26 @@ const wikidata = module.exports = {
 			return null
 		}
 
-		const propVar = '?_prop'
-		const valueStartVar = '?_value_s'
-		const valueEndVar = '?_value_e'
-		const rankVar = '?rank'
-		const timeStartVarName = 'time_s'
-		const timeStartVar = `?${timeStartVarName}`
-		const precisionStartVarName = 'precision_s'
-		const precisionStartVar = `?${precisionStartVarName}`
-		const timeEndVarName = 'time_e'
-		const timeEndVar = `?${timeEndVarName}`
-		const precisionEndVarName = 'precision_e'
-		const precisionEndVar = `?${precisionEndVarName}`
+		generateOptionalTimeTerm = function(term, valueVar, timeVar, precisionVar)
+		{
+			if (term)
+			{
+				outParams.push(timeVar)
+				outParams.push(precisionVar)
+				queryTerms.push(`OPTIONAL { ${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}. }`)
+			}
+		}
 
-		var outParams = [ timeStartVar, precisionStartVar, timeEndVar, precisionEndVar, rankVar ]
-		var queryTerms = [ queryTerm.general,
-			`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`,
-			`OPTIONAL { ${queryTerm.start} ${valueStartVar} wikibase:timeValue ${timeStartVar}. ${valueStartVar} wikibase:timePrecision ${precisionStartVar}. }`,
-			`OPTIONAL { ${queryTerm.end} ${valueEndVar} wikibase:timeValue ${timeEndVar}. ${valueEndVar} wikibase:timePrecision ${precisionEndVar}. }`,
-		]
+		const propVar = '?_prop'
+		const rankVar = '?rank'
+
+		var outParams = [ rankVar ]
+		var queryTerms = [ queryTerm.general, `OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }` ]
+		for (const termKey in queryTerm) //TODO: only pass recognized terms
+		{
+			if (termKey == "general") continue
+			generateOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
+		}
 
 		const query = this.createQuery(outParams, queryTerms)
 
@@ -365,7 +371,7 @@ const wikidata = module.exports = {
 		}
 		else if (data.results.bindings.length == 1)
 		{
-			result = readStartEndFromBindings(data.results.bindings, 0)
+			result = readBindings(data.results.bindings, 0)
 		}
 		else // data.results.bindings.length > 1
 		{
@@ -374,7 +380,7 @@ const wikidata = module.exports = {
 			{
 				console.warn("\tQuery returned multiple equally-preferred values.")
 			}
-			result = readStartEndFromBindings(lastBindings, 0)
+			result = readBindings(lastBindings, 0)
 		}
 
 		this.cache2[cacheKey] = result;

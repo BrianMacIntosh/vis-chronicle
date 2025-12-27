@@ -10,31 +10,29 @@
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0));
 }
-.vis-item.vis-range.visc-right-withtail
+.visc-uncertain
+{
+	background: repeating-linear-gradient(45deg, #00000060, #00000060 8px, transparent 8px, transparent 16px)
+}
+.vis-item.vis-range.visc-right-connection, .vis-item.vis-range.visc-left-tail
 {
 	border-right-style: none;
 	border-top-right-radius: 0;
 	border-bottom-right-radius: 0;
+	margin-right: -1px;
 }
 .vis-item.vis-range.visc-right-tail
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0));
+}
+.vis-item.vis-range.visc-left-connection, .vis-item.vis-range.visc-right-tail
+{
 	border-left-style: none;
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
 	margin-left: -1px;
 }
-.vis-item.vis-range.visc-left-withtail
-{
-	border-left-style: none;
-	border-top-left-radius: 0;
-	border-bottom-left-radius: 0;
-}
 .vis-item.vis-range.visc-left-tail
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
-	border-right-style: none;
-	border-top-right-radius: 0;
-	border-bottom-right-radius: 0;
-	margin-right: -1px;
 }
