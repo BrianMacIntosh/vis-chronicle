@@ -10,6 +10,8 @@
 		"startTime": "{entity} p:P580 ?_prop. ?_prop psv:P580 ?_value.",
 		"endTime": "{entity} p:P582 ?_prop. ?_prop psv:P582 ?_value.",
 
+		"pointInTime": "{entity} p:P585 ?_prop. ?_prop psv:P585 ?_value.",
+
 		"positionHeldStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}.",
 			"start": "?_prop pqv:P580 ?_value_s.",
