@@ -120,6 +120,10 @@ function getExpectation(item)
 		{
 			continue;
 		}
+		if (expectation.startEndQuery && item.startEndQuery != expectation.startEndQuery)
+		{
+			continue;
+		}
 		return expectation;
 	}
 	assert(false) // expect at least a universal fallback expectation
