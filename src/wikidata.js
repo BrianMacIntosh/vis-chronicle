@@ -246,7 +246,7 @@ const wikidata = module.exports = {
 
 		// read cache
 		const cacheKey = queryTerm //TODO: should probably be the full query so it invalidates for code changes
-		if (!this.skipCache && this.cache[cacheKey])
+		if (!this.skipCache && !item.skipCache && this.cache[cacheKey])
 		{
 			console.log("\tTerm cache hit.")
 			return this.cache[cacheKey]
@@ -349,7 +349,7 @@ const wikidata = module.exports = {
 
 		// read cache
 		const cacheKey = query
-		if (!this.skipCache && this.cache2[cacheKey])
+		if (!this.skipCache && !item.skipCache &&this.cache2[cacheKey])
 		{
 			console.log("\tTerm cache 2 hit.")
 			return this.cache2[cacheKey]
