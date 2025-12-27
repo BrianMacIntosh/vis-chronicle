@@ -161,7 +161,8 @@ function produceOutput(items)
 			}
 			else if (!outputItem.end)
 			{
-				if (expectation.duration.max && outputItem.start.clone().add(expectation.duration.max) < moment())
+				const useMax = expectation.duration.max ? expectation.duration.max : moment(expectation.duration.avg.asMilliseconds() * 2)
+				if (outputItem.start.clone().add(useMax) < moment())
 				{
 					// 'max' is less than 'now'; it is likely this duration is not ongoing but has an unknown end
 					//TODO: accomodate wikidata special 'no value'
