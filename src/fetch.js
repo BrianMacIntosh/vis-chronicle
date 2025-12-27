@@ -143,8 +143,11 @@ function produceOutput(items)
 			comment: item.comment,
 			type: item.type
 		}
-		outputItem.group = item.group
-		outputItem.subgroup = item.subgroup ? item.subgroup : item.entity
+		if (item.group)
+		{
+			outputItem.group = item.group
+			outputItem.subgroup = item.subgroup ? item.subgroup : item.entity
+		}
 		
 		// look up duration expectations
 		const expectation = getExpectation(item)
