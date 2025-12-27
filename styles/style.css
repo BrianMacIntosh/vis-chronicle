@@ -13,16 +13,28 @@
 .vis-item.vis-range.visc-right-withtail
 {
 	border-right-style: none;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
 }
 .vis-item.vis-range.visc-right-tail
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0));
+	border-left-style: none;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	margin-left: -1px;
 }
 .vis-item.vis-range.visc-left-withtail
 {
-	border-right-style: none;
+	border-left-style: none;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
 }
 .vis-item.vis-range.visc-left-tail
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
+	border-right-style: none;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	margin-right: -1px;
 }
