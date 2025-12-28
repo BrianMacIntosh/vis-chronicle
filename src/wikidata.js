@@ -84,7 +84,7 @@ const wikidata = module.exports = {
 		}
 	},
 
-	postprocessQueryTerm: function(term, item)
+	postprocessQueryTerm: function(context, term, item)
 	{
 		if (!term)
 		{
@@ -99,7 +99,9 @@ const wikidata = module.exports = {
 				insertValue = "wd:" + insertValue
 			term = term.replaceAll(`{${key}}`, insertValue)
 		}
-		//TODO: detect unreplaced wildcards
+
+		// detect unreplaced wildcards
+		//TODO:
 
 		// terminate term
 		if (!term.trim().endsWith("."))
@@ -112,11 +114,13 @@ const wikidata = module.exports = {
 
 	// Dereferences the query term if it's a pointer to a template.
 	// Expects simple string terms (start or end)
-	getQueryTermHelper: function(queryTerm, item, tempateSetName)
+	getQueryTermHelper: function(inQueryTerm, item, tempateSetName)
 	{
-		if (queryTerm.startsWith("#"))
+		var queryTerm
+
+		if (inQueryTerm.startsWith("#"))
 		{
-			const templateName = queryTerm.substring(1).trim()
+			const templateName = inQueryTerm.substring(1).trim()
 			var queryTemplate = this.getQueryTemplate(templateName, tempateSetName);
 			if (queryTemplate)
 			{
@@ -127,10 +131,14 @@ const wikidata = module.exports = {
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
+		else
+		{
+			queryTerm = inQueryTerm
+		}
 
 		//TODO: validate query has required wildcards
 		
-		queryTerm = this.postprocessQueryTerm(queryTerm, item)
+		queryTerm = this.postprocessQueryTerm(inQueryTerm, queryTerm, item)
 		return queryTerm
 	},
 
@@ -142,11 +150,13 @@ const wikidata = module.exports = {
 	},
 
 	// Dereferences the query term if it's a pointer to a template.
-	getValueQueryTerm: function(queryTerm, item)
+	getValueQueryTerm: function(inQueryTerm, item)
 	{
-		if (queryTerm.startsWith && queryTerm.startsWith("#"))
+		var queryTerm
+
+		if (inQueryTerm.startsWith && inQueryTerm.startsWith("#"))
 		{
-			const templateName = queryTerm.substring(1).trim()
+			const templateName = inQueryTerm.substring(1).trim()
 			var queryTemplate = this.getQueryTemplate(templateName, "queryTemplates");
 			if (queryTemplate)
 			{
@@ -157,11 +167,15 @@ const wikidata = module.exports = {
 				throw `Query template '${templateName}' not found (on item ${item.id}).`
 			}
 		}
+		else
+		{
+			queryTerm = inQueryTerm
+		}
 
 		if (typeof queryTerm === 'string' || queryTerm instanceof String)
 		{
 			return {
-				value: this.postprocessQueryTerm(queryTerm, item),
+				value: this.postprocessQueryTerm(inQueryTerm, queryTerm, item),
 				min: "?_prop pqv:P1319 ?_min_value.",
 				max: "?_prop pqv:P1326 ?_max_value."
 			}
@@ -171,7 +185,7 @@ const wikidata = module.exports = {
 			const result = {}
 			for (const key in queryTerm)
 			{
-				result[key] = this.postprocessQueryTerm(queryTerm[key], item)
+				result[key] = this.postprocessQueryTerm(inQueryTerm, queryTerm[key], item)
 			}
 			return result
 		}
