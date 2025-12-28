@@ -34,3 +34,7 @@
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1));
 }
+.vis-item-content a {
+  color: inherit;
+  text-decoration: inherit;
+}

@@ -335,9 +335,9 @@ const wikidata = module.exports = {
 			delete newItem.itemQuery
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
 			const wikidataLabel = binding[itemVarName + "Label"].value
-			newItem.label = templateItem.label !== undefined
-				? templateItem.label.replaceAll("{_LABEL}", wikidataLabel)
-				: wikidataLabel;
+			newItem.label = templateItem.label
+				? templateItem.label.replaceAll("{_LABEL}", wikidataLabel).replaceAll("{_QID}", newItem.entity)
+				: `<a target="_blank" href="https://www.wikidata.org/wiki/${newItem.entity}">${wikidataLabel}</a>`
 			newItems.push(newItem)
 		}
 

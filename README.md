@@ -60,7 +60,9 @@ This specification file generates a timeline containing the lifespans of every U
 `items` contains any number of items to generate. An item can be a single, literal item, or a multi-item generator (using `itemQuery`).
 
 Item properties:
-* `label`: Literal items only. Display label for the item. Can contain HTML. For generators, `{_LABEL}` will be replaced by the Wikidata label.
+* `label`: Literal items only. Display label for the item. Can contain HTML. For generators, wildcards can be used:
+    * `{_LABEL}` will be replaced by the Wikidata label.
+	* `{_QID}` will be replaced by the Wikidata Q-id.
 * `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `?_node` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
 * `group`: The vis-timeline group to put the item(s) in.
 * `className`: CSS class to apply to the timeline div.
