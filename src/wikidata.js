@@ -12,6 +12,7 @@ const wikidata = module.exports = {
 
 	cache: {},
 	skipCache: false,
+	cacheBuster: undefined,
 	termCacheFile: "intermediate/wikidata-term-cache.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
@@ -240,6 +241,7 @@ const wikidata = module.exports = {
 		const rankVar = '?_rank'
 
 		const queryBuilder = new SparqlBuilder()
+		queryBuilder.addCacheBuster(this.cacheBuster)
 
 		// create a dummy item representing the collective items
 		//TODO: validate that they match
@@ -278,7 +280,7 @@ const wikidata = module.exports = {
 
 		// read cache
 		const cacheKey = query
-		if (!this.skipCache && this.cache[cacheKey])
+		if (!this.skipCache && !item.skipCache && this.cache[cacheKey])
 		{
 			return this.cache[cacheKey]
 		}
@@ -358,6 +360,7 @@ const wikidata = module.exports = {
 		const itemQueryTerm = this.getItemQueryTerm(templateItem.itemQuery, templateItem)
 
 		const queryBuilder = new SparqlBuilder()
+		queryBuilder.addCacheBuster(this.cacheBuster)
 		queryBuilder.addOutParam(itemVar)
 		queryBuilder.addOutParam(itemVar + "Label")
 		queryBuilder.addQueryTerm(itemQueryTerm)

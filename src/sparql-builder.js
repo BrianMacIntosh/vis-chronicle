@@ -56,6 +56,12 @@ module.exports = class SparqlBuilder
 		this.addOptionalQueryTerm(`${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}.`)
 	}
 
+	addCacheBuster(str)
+	{
+		if (str)
+			this.addQueryTerm(`#${str}\n`)
+	}
+
 	build()
 	{
 		assert(this.outParams.length > 0)

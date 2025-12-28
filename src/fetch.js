@@ -13,7 +13,8 @@ const { values, positionals } = nodeutil.parseArgs({
 		"verbose": { type: 'boolean', short: 'v', default: false },
 		"skip-wd-cache": { type: 'boolean', default: false },
 		"query-url": { type: 'string', short: 'q', default: "https://query.wikidata.org/sparql" },
-		"lang": { type: 'string', short: 'l', default: "en,mul" }
+		"lang": { type: 'string', short: 'l', default: "en,mul" },
+		"cachebuster": { type: 'string', default: undefined}
 	}})
 	
 var specFile = positionals[0]
@@ -64,6 +65,7 @@ postprocessGlobalData()
 const inputSpec = require(path.join(process.cwd(), specFile))
 wikidata.setInputSpec(inputSpec)
 wikidata.skipCache = values["skip-wd-cache"]
+wikidata.cacheBuster = values["cachebuster"]
 wikidata.sparqlUrl = values["query-url"]
 wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
@@ -400,6 +402,7 @@ entryPoint()
 			&& key != "label"
 			&& key != "className"
 			&& key != "entity"
+			&& key != "skipCache"
 	}
 
 	// bundle items that use the same queries
