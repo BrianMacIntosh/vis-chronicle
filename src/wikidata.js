@@ -25,8 +25,11 @@ const wikidata = module.exports = {
 	{
 		const chroniclePackage = require("../package.json")
 		this.options = {
+			method: 'POST',
 			headers: {
-				'User-Agent': `vis-chronicle/${chroniclePackage.version} (https://github.com/BrianMacIntosh/vis-chronicle) Node.js/${process.version}`
+				'User-Agent': `vis-chronicle/${chroniclePackage.version} (https://github.com/BrianMacIntosh/vis-chronicle) Node.js/${process.version}`,
+				'Content-Type': 'application/sparql-query',
+				'Accept': 'application/sparql-results+json'
 			}
 		}
 	},
@@ -390,12 +393,9 @@ const wikidata = module.exports = {
 	{
 		if (this.verboseLogging) console.log(query)
 
-		const params = "format=json&query=" + encodeURIComponent(query)
-		const request = this.sparqlUrl + "?" + params
-		//if (this.verboseLogging) console.log(request)
-
 		assert(this.options)
-		const response = await fetch(request, this.options)
+		const options = { ...this.options, body: query }
+		const response = await fetch(this.sparqlUrl, options)
 		if (response.status != 200)
 		{
 			console.log(response)
