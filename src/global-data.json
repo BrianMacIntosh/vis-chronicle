@@ -33,6 +33,8 @@
 	},
 	"itemQueryTemplates":
 	{
+		"withPosition": "?_node wdt:P39 {position}.",
+
 		"humansWithPosition": "?_node wdt:P39 {position}. ?_node wdt:P31 wd:Q5.",
 		"humansWithPositionJurisdiction": "?_node p:P39 [ ps:P39 {position}; pq:P1001 {jurisdiction} ]. ?_node wdt:P31 wd:Q5."
 	},
