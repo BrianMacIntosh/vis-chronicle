@@ -133,6 +133,15 @@ function getExpectation(item)
 // produces JSON output from the queried data
 function produceOutput(items)
 {
+	const finalizeItem = function(item)
+	{
+		if (item.start)
+			item.start = item.start.format("YYYYYY-MM-DDThh:mm:ss")
+		if (item.end)
+			item.end = item.end.format("YYYYYY-MM-DDThh:mm:ss")
+		outputObject.items.push(item)
+	}
+
 	var outputObject = { items: [], groups: inputSpec.groups, options: inputSpec.options }
 	for (const item of items)
 	{
@@ -148,6 +157,11 @@ function produceOutput(items)
 			outputItem.group = item.group
 			outputItem.subgroup = item.subgroup ? item.subgroup : item.entity
 		}
+
+		const isRangeType = !outputItem.type || outputItem.type == "range" || outputItem.type == "background"
+
+		// for debugging
+		outputItem.className = [ outputItem.className, item.entity ].join(' ')
 		
 		// look up duration expectations
 		const expectation = getExpectation(item)
@@ -176,12 +190,13 @@ function produceOutput(items)
 			outputItem.start = start_min
 			outputItem.end = end_max
 
-			// convert moment to a final string
-			if (outputItem.start)
-				outputItem.start = outputItem.start.format("YYYYYY-MM-DDThh:mm:ss")
-			if (outputItem.end)
-				outputItem.end = outputItem.end.format("YYYYYY-MM-DDThh:mm:ss")
-			outputObject.items.push(outputItem)
+			finalizeItem(outputItem)
+			continue;
+		}
+
+		if (!isRangeType)
+		{
+			finalizeItem(outputItem)
 			continue;
 		}
 
@@ -290,12 +305,7 @@ function produceOutput(items)
 		//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
 		//TODO: accept expected durations and place uncertainly before/after those
 
-		// convert moment to a final string
-		if (outputItem.start)
-			outputItem.start = outputItem.start.format("YYYYYY-MM-DDThh:mm:ss")
-		if (outputItem.end)
-			outputItem.end = outputItem.end.format("YYYYYY-MM-DDThh:mm:ss")
-		outputObject.items.push(outputItem)
+		finalizeItem(outputItem)
 	}
 	return JSON.stringify(outputObject, undefined, "\t") //TODO: configure space
 }
