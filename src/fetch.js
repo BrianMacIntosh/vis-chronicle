@@ -384,44 +384,119 @@ entryPoint()
 .then(async () => {
 
 	// run all the Wikidata queries
+
+	const isQueryProperty = function(key)
+	{
+		if (key == "startEndQuery" || key == "startQuery" || key == "endQuery") return true
+
+		//TODO: look at the queries for parameter names
+		return key != "comment"
+			&& key != "id"
+			&& key != "content"
+			&& key != "group"
+			&& key != "subgroup"
+			&& key != "itemQuery"
+			&& key != "type"
+			&& key != "label"
+			&& key != "className"
+			&& key != "entity"
+	}
+
+	// bundle items that use the same queries
+	const queryBundles = {}
 	for (const item of inputSpec.items)
 	{
 		if (item.finished) continue
 
-		console.log(`Processing ${item.id}...`)
-
-		//TODO: batch queries on the same item
-
-		if (item.startEndQuery)
+		// the bundle key is the queries, as well as any wildcard parameters
+		const keyObject = {}
+		for (const itemKey in item)
 		{
-			const result = await wikidata.runTimeQueryTerm(item.startEndQuery, item)
-			item.start = result.start
-			item.end = result.end
-			item.start_min = result.start_min
-			item.start_max = result.start_max
-			item.end_min = result.end_min
-			item.end_max = result.end_max
+			if (isQueryProperty(itemKey))
+			{
+				keyObject[itemKey] = item[itemKey]
+			}
+		}
+
+		const keyStr = JSON.stringify(keyObject)
+		var targetBundle = queryBundles[keyStr]
+		if (targetBundle)
+		{
+			targetBundle.push(item)
 		}
 		else
 		{
-			if (item.startQuery)
-			{
-				const result = await wikidata.runTimeQueryTerm(item.startQuery, item)
-				item.start = result.value;
-				item.start_min = result.min;
-				item.start_max = result.max;
-			}
-			if (item.endQuery)
-			{
-				const result = await wikidata.runTimeQueryTerm(item.endQuery, item)
-				item.end = result.value;
-				item.end_min = result.min;
-				item.end_max = result.max;
-			}
+			targetBundle = [ item ]
+			queryBundles[keyStr] = targetBundle
 		}
-		item.finished = true
 	}
 
+	console.log(`There are ${Object.keys(queryBundles).length} query bundles.`)
+	for (const bundleKey in queryBundles)
+	{
+		const bundle = queryBundles[bundleKey]
+		console.log(`\tBundle (${bundle.length} items): ${bundleKey}.`)
+
+		const representativeItem = bundle[0]
+
+		const copyResult = function(result, func)
+		{
+			for (const resultId in result)
+			{
+				const item = findItemByEntityId(resultId)
+				if (item)
+				{
+					func(item, result[resultId])
+					item.finished = true
+				}
+				else
+				{
+					throw `Failed to push query results back to item with entity '${resultId}'.`
+				}
+			}
+		}
+
+		const findItemByEntityId = function(entity)
+		{
+			for (const item of bundle)
+			{
+				if (item.entity == entity)
+				{
+					return item;
+				}
+			}
+			return null;
+		}
+
+		if (representativeItem.startEndQuery)
+		{
+			const result = await wikidata.runTimeQueryTerm(representativeItem.startEndQuery, bundle)
+			copyResult(result, function(item, result) {
+				Object.assign(item, result)
+			})
+		}
+		else
+		{
+			if (representativeItem.startQuery)
+			{
+				const result = await wikidata.runTimeQueryTerm(representativeItem.startQuery, bundle)
+				copyResult(result, function(item, result) {
+					item.start = result.value;
+					item.start_min = result.min;
+					item.start_max = result.max;
+				})
+			}
+			if (representativeItem.endQuery)
+			{
+				const result = await wikidata.runTimeQueryTerm(representativeItem.endQuery, bundle)
+				copyResult(result, function(item, result) {
+					item.end = result.value;
+					item.end_min = result.min;
+					item.end_max = result.max;
+				})
+			}
+		}
+	}
 })
 .then(async () => {
 

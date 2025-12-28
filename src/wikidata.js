@@ -2,7 +2,8 @@
 const mypath = require("./mypath.js")
 const fs = require('fs');
 const globalData = require("./global-data.json")
-const assert = require('node:assert/strict');
+const assert = require('node:assert/strict')
+const SparqlBuilder = require("./sparql-builder.js")
 
 const wikidata = module.exports = {
 
@@ -200,19 +201,13 @@ const wikidata = module.exports = {
 			return url
 	},
 
-	createQuery: function(outParams, queryTerms)
-	{
-		//TODO: prevent injection
-		return `SELECT ${outParams.join(" ")} WHERE{${queryTerms.join(" ")}}`
-	},
-
 	// Sequential list of filters to narrow down a list of bindings to the best result
 	bindingFilters: [
 		(binding, index, array) => {
-			return binding.rank.value != wikidata.rankDeprecated;
+			return binding._rank.value != wikidata.rankDeprecated;
 		},
 		(binding, index, array) => {
-			return binding.rank.value === wikidata.rankPreferred;
+			return binding._rank.value === wikidata.rankPreferred;
 		},
 	],
 
@@ -233,89 +228,116 @@ const wikidata = module.exports = {
 		return lastBindings
 	},
 
-	// runs a SPARQL query term for time values (after wrapping it in the appropriate boilerplate)
-	runTimeQueryTerm: async function (queryTermStr, item)
+	// runs a SPARQL query for time values on an item or set of items
+	runTimeQueryTerm: async function (queryTermStr, items)
 	{
-		queryTerm = this.getValueQueryTerm(queryTermStr, item)
-
-		generateOptionalTimeTerm = function(term, valueVar, timeVar, precisionVar)
-		{
-			if (term)
-			{
-				outParams.push(timeVar)
-				outParams.push(precisionVar)
-				queryTerms.push(`OPTIONAL { ${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}. }`)
-			}
-		}
-
+		const entityVarName = '_entity'
+		const entityVar = `?${entityVarName}`
 		const propVar = '?_prop'
-		const rankVar = '?rank'
+		const rankVar = '?_rank'
+
+		const queryBuilder = new SparqlBuilder()
+
+		// create a dummy item representing the collective items
+		//TODO: validate that they match
+		item = { ...items[0] }
+		item.entity = entityVar
+		item.id = "DUMMY"
+
+		queryTerm = this.getValueQueryTerm(queryTermStr, item)
 		
-		var outParams = [ rankVar ]
-		var queryTerms = [ ]
+		// assembly query targets
+		const targetEntities = new Set()
+		for (const item of items)
+		{
+			targetEntities.add(`wd:${item.entity}`)
+		}
+		queryBuilder.addQueryTerm(`VALUES ${entityVar}{${[...targetEntities].join(' ')}}`)
+		queryBuilder.addOutParam(entityVar)
+
+		queryBuilder.addOutParam(rankVar)
 		if (queryTerm.general)
 		{
-			queryTerms.push(queryTerm.general)
+			queryBuilder.addQueryTerm(queryTerm.general)
 		}
 		if (queryTerm.value) //TODO: could unify better with loop below?
 		{
-			outParams.push("?_value_ti")
-			outParams.push("?_value_pr")
-			queryTerms.push(`${queryTerm.value} ?_value wikibase:timeValue ?_value_ti. ?_value wikibase:timePrecision ?_value_pr.`)
+			queryBuilder.addTimeTerm(queryTerm.value, "?_value", "?_value_ti", "?_value_pr")
 		}
 		for (const termKey in queryTerm) //TODO: only pass recognized terms
 		{
 			if (termKey == "general" || termKey == "value") continue
-			generateOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
+			queryBuilder.addOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
 		}
-		queryTerms.push(`OPTIONAL { ${propVar} wikibase:rank ${rankVar}. }`)
+		queryBuilder.addOptionalQueryTerm(`${propVar} wikibase:rank ${rankVar}.`)
 
-		const query = this.createQuery(outParams, queryTerms)
+		const query = queryBuilder.build()
 
 		// read cache
 		const cacheKey = query
-		if (!this.skipCache && !item.skipCache &&this.cache[cacheKey])
+		if (!this.skipCache && this.cache[cacheKey])
 		{
-			//console.log("\tTerm cache hit.")
 			return this.cache[cacheKey]
 		}
 		
 		const data = await this.runQuery(query)
 		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
 
-		const readBindings = function(bindings, index)
+		const readBinding = function(binding)
 		{
 			const result = {}
 			for (const termKey in queryTerm) //TODO: only use recognized terms
 			{
-				if (bindings[index][`_${termKey}_ti`])
+				if (binding[`_${termKey}_ti`])
 				{
 					result[termKey] = {
-						value: bindings[index][`_${termKey}_ti`].value,
-						precision: parseInt(bindings[index][`_${termKey}_pr`].value)
+						value: binding[`_${termKey}_ti`].value,
+						precision: parseInt(binding[`_${termKey}_pr`].value)
 					}
 				}
 			}
 			return result
 		}
 
-		var result;
-		if (data.results.bindings.length <= 0)
+		// arrays of bindings, grouped by entity id
+		const bindingsByEntity = {}
+
+		// sort out the bindings by entity
+		for (const binding of data.results.bindings)
 		{
-			result = {}
-		}
-		else if (data.results.bindings.length == 1)
-		{
-			result = readBindings(data.results.bindings, 0)
-		}
-		else // data.results.bindings.length > 1
-		{
-			var lastBindings = this.filterBestBindings(data.results.bindings)
-			if (lastBindings.length > 1)
+			// read entity id
+			assert(binding[entityVarName].type == 'uri')
+			const entityId = this.extractQidFromUrl(binding[entityVarName].value)
+
+			// get array for entity-specific results
+			var entityBindings = bindingsByEntity[entityId]
+			if (!entityBindings)
 			{
-				console.warn("\tQuery returned multiple equally-preferred values.")
+				entityBindings = []
+				bindingsByEntity[entityId] = entityBindings
 			}
-			result = readBindings(lastBindings, 0)
+
+			entityBindings.push(binding)
+		}
+
+		// filter down to one result per entity
+		const result = {}
+		for (const entityId in bindingsByEntity)
+		{
+			const entityBindings = bindingsByEntity[entityId]
+			if (entityBindings.length == 1)
+			{
+				result[entityId] = readBinding(entityBindings[0])
+			}
+			else // entityBindings.length > 1
+			{
+				var lastBindings = this.filterBestBindings(entityBindings)
+				if (lastBindings.length > 1)
+				{
+					console.warn("\tQuery returned multiple equally-preferred values.")
+				}
+				result[entityId] = readBinding(lastBindings[0])
+			}
 		}
 
 		this.cache[cacheKey] = result;
@@ -332,11 +354,13 @@ const wikidata = module.exports = {
 		templateItem.entity = itemVar
 		const itemQueryTerm = this.getItemQueryTerm(templateItem.itemQuery, templateItem)
 
-		var outParams = [ itemVar, itemVar + "Label" ]
-		var queryTerms = [ itemQueryTerm, `SERVICE wikibase:label { bd:serviceParam wikibase:language "${this.lang}". }` ]
+		const queryBuilder = new SparqlBuilder()
+		queryBuilder.addOutParam(itemVar)
+		queryBuilder.addOutParam(itemVar + "Label")
+		queryBuilder.addQueryTerm(itemQueryTerm)
+		queryBuilder.addWikibaseLabel(this.lang)
 		
-		//TODO: prevent injection
-		const query = `SELECT ${outParams.join(" ")} WHERE {${queryTerms.join(" ")}}`
+		const query = queryBuilder.build()
 		const data = await this.runQuery(query)
 
 		const newItems = []
