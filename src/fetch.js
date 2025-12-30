@@ -364,11 +364,13 @@ entryPoint()
 		if (!item.id)
 		{
 			const baseId = item.entity ? item.entity : "anonymous"
+			var prospectiveId = baseId
 			var i = 0
-			do {
+			while (itemIds.has(prospectiveId))
+			{
 				i++
-				var prospectiveId = baseId + "-" + i
-			} while (itemIds.has(prospectiveId));
+				prospectiveId = baseId + "-" + i
+			}
 			item.id = prospectiveId
 			itemIds.add(prospectiveId)
 		}
