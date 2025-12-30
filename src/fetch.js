@@ -20,8 +20,8 @@ const { values, positionals } = nodeutil.parseArgs({
 var specFile = positionals[0]
 if (!specFile)
 {
-	console.error(`No specification file provided.`)
-	console.log(`Usage: vis-chronicle INFILE [OUTFILE]`)
+	console.error(`No specification file or directory provided.`)
+	console.log(`Usage: vis-chronicle IN [OUT]`)
 }
 else
 {
@@ -62,8 +62,6 @@ function postprocessGlobalData()
 }
 postprocessGlobalData()
 
-const inputSpec = require(path.join(process.cwd(), specFile))
-wikidata.setInputSpec(inputSpec)
 wikidata.skipCache = values["skip-wd-cache"]
 wikidata.cacheBuster = values["cachebuster"]
 wikidata.sparqlUrl = values["query-url"]
@@ -144,7 +142,7 @@ function produceOutput(items)
 		outputObject.items.push(item)
 	}
 
-	var outputObject = { items: [], groups: inputSpec.groups, options: inputSpec.options }
+	var outputObject = { items: [], groups: wikidata.inputSpec.groups, options: wikidata.inputSpec.options }
 	for (const item of items)
 	{
 		var outputItem = {
@@ -317,21 +315,26 @@ async function entryPoint() {}
 entryPoint()
 .then(async () => {
 
+	await wikidata.readInputSpec(path.join(process.cwd(), specFile));
+
+})
+.then(async () => {
+
 	await wikidata.readCache();
 
 })
 .then(async () => {
 
 	// replace template items using their item-generating queries
-	for (var i = inputSpec.items.length - 1; i >= 0; --i)
+	for (var i = wikidata.inputSpec.items.length - 1; i >= 0; --i)
 	{
-		var templateItem = inputSpec.items[i]
+		var templateItem = wikidata.inputSpec.items[i]
 		if (templateItem.itemQuery) //TODO: caching for item queries
 		{
-			inputSpec.items.splice(i, 1)
+			wikidata.inputSpec.items.splice(i, 1)
 			const newItems = await wikidata.createTemplateItems(templateItem)
 			for (const newItem of newItems)
-				inputSpec.items.push(newItem)
+				wikidata.inputSpec.items.push(newItem)
 		}
 	}
 
@@ -342,7 +345,7 @@ entryPoint()
 
 	// collect all existing ids
 	var itemIds = new Set()
-	for (const item of inputSpec.items)
+	for (const item of wikidata.inputSpec.items)
 	{
 		if (item.id)
 		{
@@ -359,7 +362,7 @@ entryPoint()
 	}
 
 	// generate ids for items that don't have one
-	for (const item of inputSpec.items)
+	for (const item of wikidata.inputSpec.items)
 	{
 		if (!item.id)
 		{
@@ -409,7 +412,7 @@ entryPoint()
 
 	// bundle items that use the same queries
 	const queryBundles = {}
-	for (const item of inputSpec.items)
+	for (const item of wikidata.inputSpec.items)
 	{
 		if (item.finished) continue
 
@@ -508,7 +511,7 @@ entryPoint()
 	await mypath.ensureDirectoryForFile(outputFile)
 
 	// write the output file
-	const output = produceOutput(inputSpec.items)
+	const output = produceOutput(wikidata.inputSpec.items)
 	await fs.writeFile(outputFile, output, err => {
 		if (err) {
 			console.error(`Error writing output file:`)

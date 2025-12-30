@@ -1,6 +1,7 @@
 
 const mypath = require("./mypath.js")
 const fs = require('fs');
+const nodepath = require('node:path');
 const globalData = require("./global-data.json")
 const assert = require('node:assert/strict')
 const SparqlBuilder = require("./sparql-builder.js")
@@ -41,9 +42,52 @@ const wikidata = module.exports = {
 		this.lang = inLang
 	},
 
-	setInputSpec: function(inSpec)
+	readInputSpec: async function(path)
 	{
-		this.inputSpec = inSpec
+		const pathStat = await fs.promises.stat(path)
+		if (pathStat.isDirectory())
+		{
+			// read multi-file config
+			this.inputSpec = {}
+
+			const files = await fs.promises.readdir(path)
+			for (const fileName of files)
+			{
+				if (fileName.endsWith(".json"))
+				{
+					const contents = await fs.promises.readFile(nodepath.join(path, fileName))
+					const specPart = JSON.parse(contents)
+					for (const key in specPart)
+					{
+						if (specPart[key] instanceof Array)
+						{
+							if (this.inputSpec[key])
+							{
+								this.inputSpec[key].push(...specPart[key])
+							}
+							else
+							{
+								this.inputSpec[key] = specPart[key]
+							}
+						}
+						else if (this.inputSpec[key])
+						{
+							throw `Key '${key}' appears in multiple input spec files.`
+						}
+						else
+						{
+							this.inputSpec[key] = specPart[key]
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			// read single-file config
+			const contents = await fs.promises.readFile(path)
+			this.inputSpec = JSON.parse(contents)
+		}
 	},
 
 	readCache: async function()

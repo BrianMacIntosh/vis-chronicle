@@ -83,7 +83,7 @@ Item properties:
 The tool can be run as a package script like `vis-chronicle ./src/timeline.json -v`.
 
 The tool takes these parameters on the command line:
-* (Mandatory) The name of the input file.
+* (Mandatory) The name of the input file or directory. If a directory, all JSON files in the directory will be combined together.
 * (Optional) The name of the output file. Defaults to `intermediate/timeline.json`.
 * `-v[erbose]`: Print verbose output, including the actual queries being run.
 * `-skip-wd-cache`: Do not read anything from the local cache, query all data fresh.
