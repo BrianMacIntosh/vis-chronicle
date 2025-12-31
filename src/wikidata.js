@@ -407,7 +407,25 @@ const wikidata = module.exports = {
 		const itemVarName = "_node"
 		const itemVar = `?${itemVarName}`
 		templateItem.entity = itemVar
-		const itemQueryTerm = this.getItemQueryTerm(templateItem.itemQuery, templateItem)
+
+		var itemQueryTerm
+		if (templateItem.itemQuery)
+		{
+			if (templateItem.items)
+			{
+				console.warn(`Template item '${templateItem.comment}' has both 'itemQuery' and 'items': 'items' will be ignored.`)
+			}
+			itemQueryTerm = this.getItemQueryTerm(templateItem.itemQuery, templateItem)
+		}
+		else if (templateItem.items)
+		{
+			itemQueryTerm = `VALUES ${itemVar}{${templateItem.items.map(id => `wd:${id}` ).join(' ')}}`
+		}
+		else
+		{
+			console.error(`Template item '${templateItem.comment}' has no 'itemQuery' or 'items'.`)
+			return []
+		}
 
 		const queryBuilder = new SparqlBuilder()
 		queryBuilder.addCacheBuster(this.cacheBuster)
@@ -427,6 +445,7 @@ const wikidata = module.exports = {
 			const newItem = structuredClone(templateItem)
 			delete newItem.comment
 			delete newItem.itemQuery
+			delete newItem.items
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
 			newItem.generated = true
 			const wikidataLabel = binding[itemVarName + "Label"].value
@@ -437,7 +456,7 @@ const wikidata = module.exports = {
 		}
 
 		templateItem.finished = true
-		console.log(`Item-generating query '${templateItem.itemQuery}' created ${newItems.length} items.`)
+		console.log(`Item template '${templateItem.comment}' created ${newItems.length} items.`)
 
 		return newItems;
 	},

@@ -57,13 +57,14 @@ This specification file generates a timeline containing the lifespans of every U
 
 `queryTemplates` contains template queries to be re-used by multiple items. vis-chronicle comes with a few template queries by default. Queries need to match a property (`p:`) using the variable `?_prop` and a value (such as `psv:` or `pqv:`) using the variable `?_value`. Also, any format variable like `{format}` will be replaced by the same-named value on the item entry, allowing templates to be parameterized.
 
-`items` contains any number of items to generate. An item can be a single, literal item, or a multi-item generator (using `itemQuery`).
+`items` contains any number of items to generate. An item can be a single, literal item, or a multi-item generator (using `itemQuery` or `items`).
 
 Item properties:
 * `label`: Literal items only. Display label for the item. Can contain HTML. For generators, wildcards can be used:
     * `{_LABEL}` will be replaced by the Wikidata label.
 	* `{_QID}` will be replaced by the Wikidata Q-id.
 * `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `?_node` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
+* `items`: Generators only. An array of Wikidata ids. Works like `itemQuery` but with an explicit list.
 * `itemRange`: Generators only. Only generates items whose time spans fall at least partially within the provided range.
 	* `min`
     * `max`
