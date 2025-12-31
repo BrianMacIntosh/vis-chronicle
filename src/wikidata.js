@@ -348,6 +348,16 @@ const wikidata = module.exports = {
 			return result
 		}
 
+		const readBindings = function(bindings)
+		{
+			const results = []
+			for (const binding of bindings)
+			{
+				results.push(readBinding(binding))
+			}
+			return results
+		}
+
 		// arrays of bindings, grouped by entity id
 		const bindingsByEntity = {}
 
@@ -369,7 +379,7 @@ const wikidata = module.exports = {
 			entityBindings.push(binding)
 		}
 
-		// filter down to one result per entity
+		// filter results down to best per entity
 		const result = {}
 		for (const entityId in bindingsByEntity)
 		{
@@ -381,11 +391,7 @@ const wikidata = module.exports = {
 			else // entityBindings.length > 1
 			{
 				var lastBindings = this.filterBestBindings(entityBindings)
-				if (lastBindings.length > 1)
-				{
-					console.warn("\tQuery returned multiple equally-preferred values.")
-				}
-				result[entityId] = readBinding(lastBindings[0])
+				result[entityId] = readBindings(lastBindings)
 			}
 		}
 

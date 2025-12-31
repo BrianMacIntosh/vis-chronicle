@@ -449,17 +449,35 @@ entryPoint()
 
 		const copyResult = function(result, func)
 		{
-			for (const resultId in result)
+			for (const entityId in result)
 			{
-				const item = findItemByEntityId(resultId)
+				const item = findItemByEntityId(entityId)
 				if (item)
 				{
-					func(item, result[resultId])
+					var entityResult = result[entityId]
+
+					if (entityResult instanceof Array)
+					{
+						// clone the item for each result beyond the first
+						for (var i = 1; i < entityResult.length; ++i)
+						{
+							const newItem = structuredClone(item)
+							newItem.id = `${newItem.id}-v${i}`
+							wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
+							func(newItem, entityResult[i])
+							newItem.finished = true
+						}
+
+						// populate the first result into the original item
+						entityResult = entityResult[0]
+					}
+					
+					func(item, entityResult)
 					item.finished = true
 				}
 				else
 				{
-					throw `Failed to push query results back to item with entity '${resultId}'.`
+					throw `Failed to push query results back to item with entity '${entityId}'.`
 				}
 			}
 		}
