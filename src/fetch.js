@@ -173,7 +173,7 @@ function produceOutput(items)
 			&& !item.end_min && !item.end_max)
 		{
 			console.warn(`Item ${item.id} has no date data at all.`)
-			continue;
+			continue
 		}
 		
 		outputItem.start = wikidataToMoment(item.start)
@@ -183,6 +183,16 @@ function produceOutput(items)
 		const end_min = item.end_min ? wikidataToMoment(item.end_min) : outputItem.end
 		const end_max = item.end_max ? wikidataToMoment(item.end_max) : outputItem.end
 
+		// exclude items that violate itemRange constraints
+		//OPT: do this at an earlier stage? (e.g. when running the first query)
+		if (item.itemRange)
+		{
+			if (item.itemRange.min && moment(item.itemRange.min).isAfter(end_max))
+				continue
+			if (item.itemRange.max && moment(item.itemRange.max).isBefore(end_max))
+				continue
+		}
+
 		// no certainty at all
 		if (start_max >= end_min)
 		{
@@ -191,13 +201,13 @@ function produceOutput(items)
 			outputItem.end = end_max
 
 			finalizeItem(outputItem)
-			continue;
+			continue
 		}
 
 		if (!isRangeType)
 		{
 			finalizeItem(outputItem)
-			continue;
+			continue
 		}
 
 		// handle end date

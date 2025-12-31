@@ -64,6 +64,9 @@ Item properties:
     * `{_LABEL}` will be replaced by the Wikidata label.
 	* `{_QID}` will be replaced by the Wikidata Q-id.
 * `itemQuery`: Generators only. A SPARQL query segment to select all the items that should be generated. `?_node` stands in for the ouput variable. The `entity` property is added to each item with the item's entity id. Item labels are automatically fetched from Wikidata.
+* `itemRange`: Generators only. Only generates items whose time spans fall at least partially within the provided range.
+	* `min`
+    * `max`
 * `group`: The vis-timeline group to put the item(s) in.
 * `className`: CSS class to apply to the timeline div.
 * `type`: vis-timeline type of the item.

@@ -428,6 +428,7 @@ const wikidata = module.exports = {
 			delete newItem.comment
 			delete newItem.itemQuery
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
+			newItem.generated = true
 			const wikidataLabel = binding[itemVarName + "Label"].value
 			newItem.label = templateItem.label
 				? templateItem.label.replaceAll("{_LABEL}", wikidataLabel).replaceAll("{_QID}", newItem.entity)
