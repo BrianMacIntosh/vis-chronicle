@@ -451,47 +451,34 @@ entryPoint()
 		{
 			for (const entityId in result)
 			{
-				const item = findItemByEntityId(entityId)
-				if (item)
-				{
-					var entityResult = result[entityId]
+				var entityResult = result[entityId]
 
-					if (entityResult instanceof Array)
+				// there may be multiple source items making the same query
+				for (const item of bundle)
+				{
+					if (item.entity == entityId)
 					{
-						// clone the item for each result beyond the first
-						for (var i = 1; i < entityResult.length; ++i)
+						if (entityResult instanceof Array)
 						{
-							const newItem = structuredClone(item)
-							newItem.id = `${newItem.id}-v${i}`
-							wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
-							func(newItem, entityResult[i])
-							newItem.finished = true
+							// clone the item for each result beyond the first
+							for (var i = 1; i < entityResult.length; ++i)
+							{
+								const newItem = structuredClone(item)
+								newItem.id = `${newItem.id}-v${i}`
+								wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
+								func(newItem, entityResult[i])
+								newItem.finished = true
+							}
+
+							// populate the first result into the original item
+							entityResult = entityResult[0]
 						}
-
-						// populate the first result into the original item
-						entityResult = entityResult[0]
+						
+						func(item, entityResult)
+						item.finished = true
 					}
-					
-					func(item, entityResult)
-					item.finished = true
-				}
-				else
-				{
-					throw `Failed to push query results back to item with entity '${entityId}'.`
 				}
 			}
-		}
-
-		const findItemByEntityId = function(entity)
-		{
-			for (const item of bundle)
-			{
-				if (item.entity == entity)
-				{
-					return item;
-				}
-			}
-			return null;
 		}
 
 		if (representativeItem.startEndQuery)
