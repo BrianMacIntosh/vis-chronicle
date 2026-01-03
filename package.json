@@ -1,14 +1,26 @@
 {
   "name": "vis-chronicle",
-  "version": "0.0.1",
-  "description": "Generates JSON for populating a vis.js timeline from Wikidata.",
-  "private": true,
+  "version": "0.0.2",
+  "description": "Generates JSON for populating a vis.js timeline from Wikidata queries.",
+  "keywords": [
+	"wikidata", "visjs", "timeline"
+  ],
+  "homepage": "https://github.com/BrianMacIntosh/vis-chronicle",
+  "bugs": "https://github.com/BrianMacIntosh/vis-chronicle/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BrianMacIntosh/vis-chronicle.git"
+  },
   "bin": {
 	"vis-chronicle": "src/fetch.js"
   },
   "scripts": {
   },
-  "author": "Brian MacIntosh",
+  "author": {
+	"name": "Brian MacIntosh",
+	"email": "brianamacintosh@gmail.com",
+	"url": "https://brianmacintosh.com"
+  },
   "license": "ISC",
   "dependencies": {
   },

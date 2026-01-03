@@ -4,6 +4,22 @@ vis-chronicle is a tool to generate web-based timelines from Wikidata SPARQL que
 
 [vis-chronicle-demo](https://github.com/BrianMacIntosh/vis-chronicle-demo) is a demo application using this tool.
 
+## Installation
+
+`npm install vis-chronicle --save-dev`
+
+## Execution
+
+The tool can be run as a package script like `vis-chronicle ./src/timeline.json -v`.
+
+The tool takes these parameters on the command line:
+* (Mandatory) The name of the input file or directory. If a directory, all JSON files in the directory will be combined together.
+* (Optional) The name of the output file. Defaults to `intermediate/timeline.json`.
+* `-v[erbose]`: Print verbose output, including the actual queries being run.
+* `-skip-wd-cache`: Do not read anything from the local cache, query all data fresh.
+* `-q[uery-url]`: The URL of the SPARQL endpoint. Defaults to `https://query.wikidata.org/sparql`.
+* `-l[ang]`: Language priorities to use when fetching labels. Defaults to `en,mul`. See (SPARQL/SERVICE - Label)[https://en.wikibooks.org/wiki/SPARQL/SERVICE_-_Label].
+
 ## Example
 
 This specification file generates a timeline containing the lifespans of every United States president.
@@ -81,15 +97,3 @@ Item properties:
     * `min`: The absolute minimum duration.
 	* `max`: The absolute maximum duration.
 	* `avg`: The average duration.
-
-## Parameters
-
-The tool can be run as a package script like `vis-chronicle ./src/timeline.json -v`.
-
-The tool takes these parameters on the command line:
-* (Mandatory) The name of the input file or directory. If a directory, all JSON files in the directory will be combined together.
-* (Optional) The name of the output file. Defaults to `intermediate/timeline.json`.
-* `-v[erbose]`: Print verbose output, including the actual queries being run.
-* `-skip-wd-cache`: Do not read anything from the local cache, query all data fresh.
-* `-q[uery-url]`: The URL of the SPARQL endpoint. Defaults to `https://query.wikidata.org/sparql`.
-* `-l[ang]`: Language priorities to use when fetching labels. Defaults to `en,mul`. See (SPARQL/SERVICE - Label)[https://en.wikibooks.org/wiki/SPARQL/SERVICE_-_Label].
