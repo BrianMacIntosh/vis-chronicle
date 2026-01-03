@@ -2,7 +2,7 @@
 
 vis-chronicle is a tool to generate web-based timelines from Wikidata SPARQL queries. You feed the tool a specification JSON file that describes what items to put on the timeline. The tool gathers the needed data from Wikidata and produces a JSON file suitable for feeding directly to [vis-timeline](https://github.com/visjs/vis-timeline).
 
-[vis-chronicle-demo](https://github.com/BrianMacIntosh/vis-chronicle-demo) is a demo application using this tool.
+[vis-chronicle-demo](https://github.com/BrianMacIntosh/vis-chronicle-demo) is a demo application using this tool. View the output at [https://brianmacintosh.github.io/vis-chronicle-demo/].
 
 ## Installation
 
