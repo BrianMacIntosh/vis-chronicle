@@ -317,6 +317,9 @@ function produceOutput(items)
 
 		finalizeItem(outputItem)
 	}
+
+	delete outputObject.chronicle
+
 	return JSON.stringify(outputObject, undefined, "\t") //TODO: configure space
 }
 

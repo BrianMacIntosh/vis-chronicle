@@ -88,6 +88,13 @@ const wikidata = module.exports = {
 			const contents = await fs.promises.readFile(path)
 			this.inputSpec = JSON.parse(contents)
 		}
+
+		// assign default values
+		if (!this.inputSpec.chronicle)
+			this.inputSpec.chronicle = {}
+
+		if (!this.inputSpec.chronicle.defaultLabel)
+			this.inputSpec.chronicle.defaultLabel = '<a target="_blank" href="https://www.wikidata.org/wiki/{_QID}">{_LABEL}</a>'
 	},
 
 	readCache: async function()
@@ -449,9 +456,10 @@ const wikidata = module.exports = {
 			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
 			newItem.generated = true
 			const wikidataLabel = binding[itemVarName + "Label"].value
-			newItem.label = templateItem.label
-				? templateItem.label.replaceAll("{_LABEL}", wikidataLabel).replaceAll("{_QID}", newItem.entity)
-				: `<a target="_blank" href="https://www.wikidata.org/wiki/${newItem.entity}">${wikidataLabel}</a>`
+
+			const labelFomat = templateItem.label ? templateItem.label : this.inputSpec.chronicle.defaultLabel
+			newItem.label = labelFomat.replaceAll("{_LABEL}", wikidataLabel).replaceAll("{_QID}", newItem.entity)
+				
 			newItems.push(newItem)
 		}
 

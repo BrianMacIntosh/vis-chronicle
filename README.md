@@ -97,3 +97,6 @@ Item properties:
     * `min`: The absolute minimum duration.
 	* `max`: The absolute maximum duration.
 	* `avg`: The average duration.
+
+`chronicle` contains configuration for chronicle itself (not passed through to the output):
+* `defaultLabel`: Default format string to use for item labels without `label`. See `label`.
