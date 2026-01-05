@@ -69,8 +69,8 @@ wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
 wikidata.initialize()
 
-// produces a moment from a Wikidata time
-function wikidataToMoment(inTime)
+// produces a range of moments {min,max} from a Wikidata time
+function wikidataToRange(inTime)
 {
 	if (!inTime || !inTime.value)
 	{
@@ -81,25 +81,47 @@ function wikidataToMoment(inTime)
 	// moment has trouble with negative years unless they're six digits
 	const date = moment.utc(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
 
-	//TODO: do something nice in the GUI to indicate imprecision of times
+	//HACK: this should use endOf for all max values, but in practice it's really annoying to have
+	// overlapping tails on everything
 	switch (inTime.precision)
 	{
-		case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8: case 9:
+		case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
 			const yearBase = Math.pow(10, 9 - inTime.precision)
 			const roundedYear = Math.round(date.year() / yearBase) * yearBase
-			return date.year(roundedYear).startOf('year')
+			return {
+				min: moment({year:roundedYear}),
+				max: moment({year:roundedYear + yearBase}).subtract(1, 'minute').endOf('year')
+			}
+		case 9: // year precision
+			date.startOf('year')
+			return { min: date, max: date.clone() }
 		case 10: // month precision
-			return date.startOf('month')
+			date.startOf('month')
+			return { min: date, max: date.clone() }
 		case 11: // day precision
-			return date.startOf('day')
+			date.startOf('day')
+			return { min: date, max: date.clone() }
 		case 12: // hour precision
-			return date.startOf('hour')
+			date.startOf('hour')
+			return { min: date, max: date.clone() }
 		case 13: // minute precision
-			return date.startOf('minute')
+			date.startOf('minute')
+			return { min: date, max: date.clone() }
 		case 14: // second precision
-			return date.startOf('second')
+			date.startOf('second')
+			return { min: date, max: date.clone() }
 		default:
 			throw `Unrecognized date precision ${inTime.precision}`
+	}
+}
+
+function rangeUnion(a, b)
+{
+	if (!a) return b
+	if (!b) return a
+	return {
+		min: a.min && b.min ? moment.min(a.min, b.min) : a.min || b.min,
+		max: a.max && b.max ? moment.max(a.max, b.max) : a.max || b.max
 	}
 }
 
@@ -135,8 +157,8 @@ function produceOutput(items)
 {
 	const finalizeItem = function(item)
 	{
-		if (item.start)
-			item.start = item.start.format("YYYYYY-MM-DDThh:mm:ss")
+		assert(item.start)
+		item.start = item.start.format("YYYYYY-MM-DDThh:mm:ss")
 		if (item.end)
 			item.end = item.end.format("YYYYYY-MM-DDThh:mm:ss")
 		outputObject.items.push(item)
@@ -165,40 +187,34 @@ function produceOutput(items)
 		
 		// look up duration expectations
 		const expectation = getExpectation(item)
-
 		assert(expectation && expectation.duration && expectation.duration.avg) // expect at least a universal fallback expectation
 
-		if (!item.start && !item.end
-			&& !item.start_min && !item.start_max
-			&& !item.end_min && !item.end_max)
+		if (!item.start_min && !item.start_max && !item.end_min && !item.end_max)
 		{
 			console.warn(`Item ${item.id} has no date data at all.`)
 			continue
 		}
-		
-		outputItem.start = wikidataToMoment(item.start)
-		outputItem.end = wikidataToMoment(item.end)
-		const start_min = item.start_min ? wikidataToMoment(item.start_min) : outputItem.start
-		const start_max = item.start_max ? wikidataToMoment(item.start_max) : outputItem.start
-		const end_min = item.end_min ? wikidataToMoment(item.end_min) : outputItem.end
-		const end_max = item.end_max ? wikidataToMoment(item.end_max) : outputItem.end
+		assert(Boolean(item.start_min) == Boolean(item.start_max))
+		assert(Boolean(item.end_min) == Boolean(item.end_max))
+		assert(!(item.start_min > item.start_max))
+		assert(!(item.end_min > item.end_max))
 
 		// exclude items that violate itemRange constraints
 		//OPT: do this at an earlier stage? (e.g. when running the first query)
 		if (item.itemRange)
 		{
-			if (item.itemRange.min && moment(item.itemRange.min).isAfter(end_max))
+			if (item.itemRange.min && moment(item.itemRange.min).isAfter(item.end_max))
 				continue
-			if (item.itemRange.max && moment(item.itemRange.max).isBefore(end_max))
+			if (item.itemRange.max && moment(item.itemRange.max).isBefore(item.start_min))
 				continue
 		}
 
-		// no certainty at all
-		if (start_max >= end_min)
+		if (item.start_max >= item.end_min)
 		{
+			// no certainty at all: create a single uncertain range
 			outputItem.className = [ outputItem.className, 'visc-uncertain' ].join(' ')
-			outputItem.start = start_min
-			outputItem.end = end_max
+			outputItem.start = item.start_min
+			outputItem.end = item.end_max
 
 			finalizeItem(outputItem)
 			continue
@@ -206,49 +222,57 @@ function produceOutput(items)
 
 		if (!isRangeType)
 		{
+			// point type
+			//TODO: support ranged boxes etc?
+			outputItem.start = moment((item.start_min.valueOf() + item.start_max.valueOf()) / 2)
+			if (item.end_min && item.end_max)
+				outputItem.end = moment((item.end_min.valueOf() + item.end_max.valueOf()) / 2)
+
 			finalizeItem(outputItem)
 			continue
 		}
 
 		// handle end date
-		if (end_min && end_max && end_min < end_max)
+		if (item.end_min && item.end_max)
 		{
-			// uncertain end
+			if (item.end_min < item.end_max)
+			{
+				// uncertain end
 
-			// find lower bound of uncertain region
-			var uncertainMin
-			if (item.end_min)
-				uncertainMin = end_min
-			else if (outputItem.end)
-				uncertainMin = outputItem.end
+				// find lower bound of uncertain region
+				const uncertainMin = item.end_min ?? outputItem.start_max
+				assert(uncertainMin)
+				
+				// add uncertain range
+				outputObject.items.push({
+					id: outputItem.id + "-unc-end",
+					className: [outputItem.className, "visc-uncertain", "visc-left-connection"].join(' '),
+					content: item.label ? "&nbsp;" : "",
+					start: uncertainMin.format("YYYYYY-MM-DDThh:mm:ss"),
+					end: item.end_max.format("YYYYYY-MM-DDThh:mm:ss"),
+					group: item.group,
+					subgroup: outputItem.subgroup
+				})
+
+				// adjust normal range to match
+				outputItem.end = uncertainMin
+				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+			}
 			else
-				uncertainMin = outputItem.start //TODO: use min/max start
-			assert(uncertainMin)
-			
-			// add uncertain range
-			outputObject.items.push({
-				id: outputItem.id + "-unc-end",
-				className: [outputItem.className, "visc-uncertain", "visc-left-connection"].join(' '),
-				content: item.label ? "&nbsp;" : "",
-				start: uncertainMin.format("YYYYYY-MM-DDThh:mm:ss"),
-				end: end_max.format("YYYYYY-MM-DDThh:mm:ss"),
-				group: item.group,
-				subgroup: outputItem.subgroup
-			})
-
-			// adjust normal range to match
-			outputItem.end = uncertainMin
-			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+			{
+				// certain end
+				outputItem.end = item.end_max;
+			}
 		}
-		else if (!outputItem.end)
+		else if (!item.end_max)
 		{
 			// open-ended end
 			const useMax = expectation.duration.max ? expectation.duration.max : moment(expectation.duration.avg.asMilliseconds() * 2)
-			if (outputItem.start.clone().add(useMax) < moment())
+			if (item.start_max.clone().add(useMax) < moment())
 			{
-				// 'max' is less than 'now'; it is likely this duration is not ongoing but has an unknown end
+				// max "possible" is less than 'now'; it is likely this duration is not ongoing but has an unknown end
 				//TODO: accomodate wikidata special 'no value'
-				outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
+				outputItem.end = item.start_max.clone().add(expectation.duration.avg)
 			}
 			else
 			{
@@ -257,7 +281,7 @@ function produceOutput(items)
 			}
 
 			const avgDuration = moment.duration(expectation.duration.avg) //HACK: TODO: consistently postprocess expectations, or don't
-			const actualDuration = moment.duration(outputItem.end.diff(outputItem.start))
+			const actualDuration = moment.duration(outputItem.end.diff(outputItem.start_max)) //TODO: average start here?
 			var excessDuration = moment.duration(avgDuration.asMilliseconds()).subtract(actualDuration)
 			excessDuration = moment.duration(Math.max(excessDuration.asMilliseconds(), avgDuration.asMilliseconds() * 0.25))
 
@@ -276,36 +300,44 @@ function produceOutput(items)
 		}
 		
 		// handle start date
-		if (start_min && start_max && start_max > start_min)
+		if (item.start_min && item.start_max)
 		{
-			// uncertain start
-			
-			// find upper bound of uncertain region
-			var uncertainMax
-			if (item.start_max)
-				uncertainMax = start_max
-			else if (outputItem.start)
-				uncertainMax = outputItem.start
+			if (item.start_max > item.start_min)
+			{
+				// uncertain start
+				
+				// find upper bound of uncertain region
+				var uncertainMax
+				if (item.start_max)
+					uncertainMax = item.start_max
+				else if (outputItem.start)
+					uncertainMax = outputItem.start
+				else
+					uncertainMax = outputItem.end
+				assert(uncertainMax)
+
+				// add uncertain range
+				outputObject.items.push({
+					id: outputItem.id + "-unc-start",
+					className: [outputItem.className, "visc-uncertain", "visc-right-connection"].join(' '),
+					content: item.label ? "&nbsp;" : "",
+					start: item.start_min.format("YYYYYY-MM-DDThh:mm:ss"),
+					end: uncertainMax.format("YYYYYY-MM-DDThh:mm:ss"),
+					group: item.group,
+					subgroup: outputItem.subgroup
+				})
+
+				// adjust normal range to match
+				outputItem.start = uncertainMax
+				outputItem.className = [ outputItem.className, 'visc-left-connection' ].join(' ')
+			}
 			else
-				uncertainMax = outputItem.end //TODO: use min/max end
-			assert(uncertainMax)
-
-			// add uncertain range
-			outputObject.items.push({
-				id: outputItem.id + "-unc-start",
-				className: [outputItem.className, "visc-uncertain", "visc-right-connection"].join(' '),
-				content: item.label ? "&nbsp;" : "",
-				start: start_min.format("YYYYYY-MM-DDThh:mm:ss"),
-				end: uncertainMax.format("YYYYYY-MM-DDThh:mm:ss"),
-				group: item.group,
-				subgroup: outputItem.subgroup
-			})
-
-			// adjust normal range to match
-			outputItem.start = uncertainMax
-			outputItem.className = [ outputItem.className, 'visc-left-connection' ].join(' ')
+			{
+				// certain start
+				outputItem.start = item.start_min
+			}
 		}
-		else if (!outputItem.start)
+		else if (!item.start_min)
 		{
 			// open-ended start
 			outputItem.start = outputItem.end.clone().subtract(expectation.duration.avg)
@@ -461,34 +493,94 @@ entryPoint()
 
 		const representativeItem = bundle[0]
 
-		const copyResult = function(result, func)
+		// Populates output items from a query result.
+		// Multiple values will be treated as multiple items.
+		// Also expects both start and end ranges.
+		const copyMultipleResult = function(result, func)
 		{
+			const aggregateHelper = function(item, entityResult)
+			{
+				//TODO: disregard value if min and max are present? See Q33941
+				var aggregateStart = {}
+				aggregateStart = rangeUnion(aggregateStart, wikidataToRange(entityResult.start))
+				aggregateStart = rangeUnion(aggregateStart, wikidataToRange(entityResult.start_min))
+				aggregateStart = rangeUnion(aggregateStart, wikidataToRange(entityResult.start_max))
+
+				var aggregateEnd = {}
+				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end))
+				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end_min))
+				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end_max))
+
+				if (aggregateStart.min && aggregateStart.min.isSame(aggregateEnd.max))
+				{
+					if (entityResult.end && entityResult.end.precision == 9)
+					{
+						// special case: allow uncertain years to span to the end of the year if the entire duration is within the year
+						//TODO: could probably use refining
+						aggregateStart.max.endOf('year')
+						aggregateEnd.max.endOf('year')
+					}
+				}
+
+				var aggregateResult = {
+					start_min: aggregateStart.min,
+					start_max: aggregateStart.max,
+					end_min: aggregateEnd.min,
+					end_max: aggregateEnd.max
+				}
+				func(item, aggregateResult)
+				item.finished = true
+			}
+
 			for (const entityId in result)
 			{
 				var entityResult = result[entityId]
+				if (!(entityResult instanceof Array)) entityResult = [ entityResult ]
 
 				// there may be multiple source items making the same query
 				for (const item of bundle)
 				{
 					if (item.entity == entityId)
 					{
-						if (entityResult instanceof Array)
+						// clone the item for each result beyond the first
+						for (var i = 1; i < entityResult.length; ++i)
 						{
-							// clone the item for each result beyond the first
-							for (var i = 1; i < entityResult.length; ++i)
-							{
-								const newItem = structuredClone(item)
-								newItem.id = `${newItem.id}-v${i}`
-								wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
-								func(newItem, entityResult[i])
-								newItem.finished = true
-							}
-
-							// populate the first result into the original item
-							entityResult = entityResult[0]
+							const newItem = structuredClone(item)
+							newItem.id = `${newItem.id}-v${i}`
+							wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
+							aggregateHelper(newItem, entityResult[i])
 						}
-						
-						func(item, entityResult)
+
+						// populate the first result into the original item
+						aggregateHelper(item, entityResult[0])
+					}
+				}
+			}
+		}
+
+		// Populates output items from a query result.
+		// Multiple values will be treated as uncertainty.
+		const copySingleResult = function(result, func)
+		{
+			for (const entityId in result)
+			{
+				var entityResult = result[entityId]
+				if (!(entityResult instanceof Array)) entityResult = [ entityResult ]
+
+				var aggregateResult = {}
+				for (var i = 0; i < entityResult.length; ++i)
+				{
+					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].value))
+					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].min))
+					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].max))
+				}
+				
+				// there may be multiple source items making the same query
+				for (const item of bundle)
+				{
+					if (item.entity == entityId)
+					{
+						func(item, aggregateResult)
 						item.finished = true
 					}
 				}
@@ -498,7 +590,7 @@ entryPoint()
 		if (representativeItem.startEndQuery)
 		{
 			const result = await wikidata.runTimeQueryTerm(representativeItem.startEndQuery, bundle)
-			copyResult(result, function(item, result) {
+			copyMultipleResult(result, function(item, result) {
 				Object.assign(item, result)
 			})
 		}
@@ -507,8 +599,7 @@ entryPoint()
 			if (representativeItem.startQuery)
 			{
 				const result = await wikidata.runTimeQueryTerm(representativeItem.startQuery, bundle)
-				copyResult(result, function(item, result) {
-					item.start = result.value;
+				copySingleResult(result, function(item, result) {
 					item.start_min = result.min;
 					item.start_max = result.max;
 				})
@@ -516,8 +607,7 @@ entryPoint()
 			if (representativeItem.endQuery)
 			{
 				const result = await wikidata.runTimeQueryTerm(representativeItem.endQuery, bundle)
-				copyResult(result, function(item, result) {
-					item.end = result.value;
+				copySingleResult(result, function(item, result) {
 					item.end_min = result.min;
 					item.end_max = result.max;
 				})
