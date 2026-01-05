@@ -187,17 +187,21 @@ function produceOutput(items)
 		
 		// look up duration expectations
 		const expectation = getExpectation(item)
-		assert(expectation && expectation.duration && expectation.duration.avg) // expect at least a universal fallback expectation
+		expectation.duration.avg = expectation.duration.avg ?? expectation.duration.max
+		assert(expectation && expectation.duration) // expect at least a universal fallback expectation
 
 		if (!item.start_min && !item.start_max && !item.end_min && !item.end_max)
 		{
-			console.warn(`Item ${item.id} has no date data at all.`)
+			//console.warn(`Item ${item.id} has no date data at all.`)
 			continue
 		}
 		assert(Boolean(item.start_min) == Boolean(item.start_max))
 		assert(Boolean(item.end_min) == Boolean(item.end_max))
 		assert(!(item.start_min > item.start_max))
 		assert(!(item.end_min > item.end_max))
+
+		// restrict uncertainty based on expectations
+		//TODO:
 
 		// exclude items that violate itemRange constraints
 		//OPT: do this at an earlier stage? (e.g. when running the first query)
@@ -264,26 +268,29 @@ function produceOutput(items)
 				outputItem.end = item.end_max;
 			}
 		}
-		else if (!item.end_max)
+		else if (item.end_min && item.start_max < item.end_min)
 		{
-			// open-ended end
+			// open-ended end with some certainty
+			var tailEnd
 			const useMax = expectation.duration.max ? expectation.duration.max : moment(expectation.duration.avg.asMilliseconds() * 2)
-			if (item.start_max.clone().add(useMax) < moment())
+			if (item.start_max < moment().subtract(useMax))
 			{
 				// max "possible" is less than 'now'; it is likely this duration is not ongoing but has an unknown end
-				//TODO: accomodate wikidata special 'no value'
-				outputItem.end = item.start_max.clone().add(expectation.duration.avg)
+				//TODO: wikidata special 'no value' should cause the next branch to be taken
+				outputItem.end = item.start_max.clone()
+				tailEnd = item.start_max.clone().add(expectation.duration.avg)
 			}
 			else
 			{
 				// 'now' is within 'max' and so it is a reasonable guess that this duration is ongoing
-				outputItem.end = moment()
-			}
+				const avgDuration = moment.duration(expectation.duration.avg) //HACK: TODO: consistently postprocess expectations, or don't
+				const actualDuration = moment.duration(moment().diff(item.start_max)) //TODO: average start here?
+				var excessDuration = moment.duration(avgDuration.asMilliseconds()).subtract(actualDuration)
+				excessDuration = moment.duration(Math.max(excessDuration.asMilliseconds(), avgDuration.asMilliseconds() * 0.25)) //HACK: magic number
 
-			const avgDuration = moment.duration(expectation.duration.avg) //HACK: TODO: consistently postprocess expectations, or don't
-			const actualDuration = moment.duration(outputItem.end.diff(outputItem.start_max)) //TODO: average start here?
-			var excessDuration = moment.duration(avgDuration.asMilliseconds()).subtract(actualDuration)
-			excessDuration = moment.duration(Math.max(excessDuration.asMilliseconds(), avgDuration.asMilliseconds() * 0.25))
+				outputItem.end = moment()
+				tailEnd = outputItem.end.add(excessDuration)
+			}
 
 			// add a "tail" item after the end
 			outputObject.items.push({
@@ -291,12 +298,43 @@ function produceOutput(items)
 				className: [outputItem.className, "visc-right-tail"].join(' '),
 				content: item.label ? "&nbsp;" : "",
 				start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
-				end: outputItem.end.clone().add(excessDuration).format("YYYYYY-MM-DDThh:mm:ss"), //HACK: magic number
+				end: tailEnd.format("YYYYYY-MM-DDThh:mm:ss"),
 				group: item.group,
 				subgroup: outputItem.subgroup
 			})
 
 			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+		}
+		else
+		{
+			if (item.start_min && item.start_max && item.start_max > item.start_min)
+			{
+				// entire range is open-ended, but with an uncertain start region
+				outputItem.end = item.start_max.clone()
+				tailEnd = item.start_max.clone().add(expectation.duration.avg)
+
+				// add a "tail" item after the end
+				outputObject.items.push({
+					id: outputItem.id + "-tail",
+					className: [outputItem.className, "visc-right-tail"].join(' '),
+					content: item.label ? "&nbsp;" : "",
+					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
+					end: tailEnd.format("YYYYYY-MM-DDThh:mm:ss"),
+					group: item.group,
+					subgroup: outputItem.subgroup
+				})
+
+				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+			}
+			else
+			{
+				// entire range is open-ended
+				outputItem.start = item.start_min ?? item.start_max
+				outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
+				outputItem.className = [ outputItem.className, 'visc-open-right' ].join(' ')
+				finalizeItem(outputItem)
+				continue
+			}
 		}
 		
 		// handle start date
@@ -328,6 +366,7 @@ function produceOutput(items)
 				})
 
 				// adjust normal range to match
+				//TODO: handle the entire range being uncertain
 				outputItem.start = uncertainMax
 				outputItem.className = [ outputItem.className, 'visc-left-connection' ].join(' ')
 			}
