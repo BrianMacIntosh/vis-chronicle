@@ -3,6 +3,8 @@ const assert = require('node:assert/strict')
 
 module.exports = class SparqlBuilder
 {
+	distinct = false
+
 	constructor()
 	{
 		this.outParams = []
@@ -68,6 +70,7 @@ module.exports = class SparqlBuilder
 		assert(this.queryTerms.length > 0)
 
 		//TODO: prevent injection
-		return `SELECT ${this.outParams.join(" ")} WHERE{${this.queryTerms.join(" ")}}`
+		const distinct = this.distinct ? "DISTINCT" : ""
+		return `SELECT ${distinct} ${this.outParams.join(" ")} WHERE{${this.queryTerms.join(" ")}}`
 	}
 }

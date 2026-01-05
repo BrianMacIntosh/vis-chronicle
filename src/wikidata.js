@@ -435,6 +435,7 @@ const wikidata = module.exports = {
 		}
 
 		const queryBuilder = new SparqlBuilder()
+		queryBuilder.distinct = true
 		queryBuilder.addCacheBuster(this.cacheBuster)
 		queryBuilder.addOutParam(itemVar)
 		queryBuilder.addOutParam(itemVar + "Label")
