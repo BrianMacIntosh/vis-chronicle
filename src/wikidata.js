@@ -360,7 +360,18 @@ const wikidata = module.exports = {
 			const results = []
 			for (const binding of bindings)
 			{
-				results.push(readBinding(binding))
+				const newBinding = readBinding(binding)
+				const newBindingSerialized = JSON.stringify(newBinding) //HACK: serialization for comparison
+
+				//HACK: omit perfect duplicates. This can happen with overlapping statements for same position (e.g. Q8423 "position held" for subclass:king)
+				var isDupe = false
+				for (const result of results)
+				{
+					isDupe = (JSON.stringify(result) == newBindingSerialized)
+					if (isDupe) break
+				}
+				
+				if (!isDupe) results.push(readBinding(binding))
 			}
 			return results
 		}
