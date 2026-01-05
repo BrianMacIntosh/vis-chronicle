@@ -21,8 +21,17 @@
 			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
 			"end_max": "?_prop pqv:P12506 ?_end_max_value."
 		},
-		"positionJurisdictionHeldStartEnd": {
+		"positionHeldJurisdictionStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}; pq:P1001 {jurisdiction}.",
+			"start": "?_prop pqv:P580 ?_start_value.",
+			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
+			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
+			"end": "?_prop pqv:P582 ?_end_value.",
+			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
+			"end_max": "?_prop pqv:P12506 ?_end_max_value."
+		},
+		"positionOrSubclassHeldJurisdictionStartEnd": {
+			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 [ wdt:P279+ {position} ]; pq:P1001 {jurisdiction}.",
 			"start": "?_prop pqv:P580 ?_start_value.",
 			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
 			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
@@ -34,9 +43,12 @@
 	"itemQueryTemplates":
 	{
 		"withPosition": "?_node wdt:P39 {position}.",
+		"withPositionJurisdiction": "?_node p:P39 [ ps:P39 {position}; pq:P1001 {jurisdiction} ].",
 
 		"humansWithPosition": "?_node wdt:P39 {position}. ?_node wdt:P31 wd:Q5.",
-		"humansWithPositionJurisdiction": "?_node p:P39 [ ps:P39 {position}; pq:P1001 {jurisdiction} ]. ?_node wdt:P31 wd:Q5."
+		"humansWithPositionJurisdiction": "?_node p:P39 [ ps:P39 {position}; pq:P1001 {jurisdiction} ]. ?_node wdt:P31 wd:Q5.",
+
+		"humansWithPositionOrSubclassJurisdiction": "?_node p:P39 [ ps:P39 [ wdt:P279+ {position} ]; pq:P1001 {jurisdiction}]."
 	},
 	"expectations":
 	[
@@ -44,6 +56,18 @@
 			"startQuery": "#dateOfBirth",
 			"endQuery": "#dateOfDeath",
 			"duration": { "avg": "P80Y", "max": "P150Y" }
+		},
+		{
+			"startEndQuery": "#positionHeldStartEnd",
+			"duration": { "max": "P150Y" }
+		},
+		{
+			"startEndQuery": "#positionHeldJurisdictionStartEnd",
+			"duration": { "max": "P150Y" }
+		},
+		{
+			"startEndQuery": "#positionOrSubclassHeldJurisdictionStartEnd",
+			"duration": { "max": "P150Y" }
 		},
 		{
 			"duration": { "avg": "P100Y" }
