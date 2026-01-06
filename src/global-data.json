@@ -19,7 +19,9 @@
 			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
 			"end": "?_prop pqv:P582 ?_end_value.",
 			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
-			"end_max": "?_prop pqv:P12506 ?_end_max_value."
+			"end_max": "?_prop pqv:P12506 ?_end_max_value.",
+			"previous": "?_prop pq:P1365 ?_previous_value.",
+			"next": "?_prop pq:P1366 ?_next_value."
 		},
 		"positionHeldJurisdictionStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}; pq:P1001 {jurisdiction}.",
@@ -28,7 +30,9 @@
 			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
 			"end": "?_prop pqv:P582 ?_end_value.",
 			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
-			"end_max": "?_prop pqv:P12506 ?_end_max_value."
+			"end_max": "?_prop pqv:P12506 ?_end_max_value.",
+			"previous": "?_prop pq:P1365 ?_previous_value.",
+			"next": "?_prop pq:P1366 ?_next_value."
 		},
 		"positionOrSubclassHeldJurisdictionStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 [ wdt:P279+ {position} ]; pq:P1001 {jurisdiction}.",
@@ -37,7 +41,9 @@
 			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
 			"end": "?_prop pqv:P582 ?_end_value.",
 			"end_min": "?_prop pqv:P8554 ?_end_min_value.",
-			"end_max": "?_prop pqv:P12506 ?_end_max_value."
+			"end_max": "?_prop pqv:P12506 ?_end_max_value.",
+			"previous": "?_prop pq:P1365 ?_previous_value.",
+			"next": "?_prop pq:P1366 ?_next_value."
 		}
 	},
 	"itemQueryTemplates":

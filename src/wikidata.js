@@ -286,6 +286,15 @@ const wikidata = module.exports = {
 	// runs a SPARQL query for time values on an item or set of items
 	runTimeQueryTerm: async function (queryTermStr, items)
 	{
+		// keys that may appear on the query term that provide terms
+		const termTimeKeys = [
+			"general",
+			"start", "start_min", "start_max",
+			"end", "end_min", "end_max",
+			"value", "min", "max"
+		]
+		const termOtherKeys = [ "previous", "next" ]
+
 		const entityVarName = '_entity'
 		const entityVar = `?${entityVarName}`
 		const propVar = '?_prop'
@@ -320,10 +329,17 @@ const wikidata = module.exports = {
 		{
 			queryBuilder.addTimeTerm(queryTerm.value, "?_value", "?_value_ti", "?_value_pr")
 		}
-		for (const termKey in queryTerm) //TODO: only pass recognized terms
+		for (const termKey of termTimeKeys)
 		{
+			if (!queryTerm[termKey]) continue
 			if (termKey == "general" || termKey == "value") continue
 			queryBuilder.addOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
+		}
+		for (const termKey of termOtherKeys)
+		{
+			if (!queryTerm[termKey]) continue
+			queryBuilder.addOutParam(`?_${termKey}_value`)
+			queryBuilder.addOptionalQueryTerm(queryTerm[termKey])
 		}
 		queryBuilder.addOptionalQueryTerm(`${propVar} wikibase:rank ${rankVar}.`)
 
@@ -342,7 +358,7 @@ const wikidata = module.exports = {
 		const readBinding = function(binding)
 		{
 			const result = {}
-			for (const termKey in queryTerm) //TODO: only use recognized terms
+			for (const termKey of termTimeKeys)
 			{
 				if (binding[`_${termKey}_ti`])
 				{
@@ -350,6 +366,13 @@ const wikidata = module.exports = {
 						value: binding[`_${termKey}_ti`].value,
 						precision: parseInt(binding[`_${termKey}_pr`].value)
 					}
+				}
+			}
+			for (const termKey of termOtherKeys)
+			{
+				if (binding[`_${termKey}_value`])
+				{
+					result[termKey] = wikidata.extractQidFromUrl(binding[`_${termKey}_value`].value)
 				}
 			}
 			return result
