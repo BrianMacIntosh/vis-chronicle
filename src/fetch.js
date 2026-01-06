@@ -85,7 +85,12 @@ function wikidataToRange(inTime)
 	{
 		case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
 			const yearBase = Math.pow(10, 9 - inTime.precision)
-			const roundedYear = Math.round(date.year() / yearBase) * yearBase
+			var roundedYear = Math.floor(date.year() / yearBase) * yearBase
+
+			// correct for lack of year 0 ("-19" is actually "-20 BC")
+			// and also for the fact that "-20 BC" is really on the positive side of e.g. -18
+			if (date.year() < 0) roundedYear += 2
+
 			return {
 				min: moment({year:roundedYear}),
 				max: moment({year:roundedYear + yearBase}).subtract(1, 'minute').endOf('year')
