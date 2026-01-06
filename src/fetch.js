@@ -81,8 +81,6 @@ function wikidataToRange(inTime)
 	// moment has trouble with negative years unless they're six digits
 	const date = moment.utc(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
 
-	//HACK: this should use endOf for all max values, but in practice it's really annoying to have
-	// overlapping tails on everything
 	switch (inTime.precision)
 	{
 		case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
@@ -93,23 +91,22 @@ function wikidataToRange(inTime)
 				max: moment({year:roundedYear + yearBase}).subtract(1, 'minute').endOf('year')
 			}
 		case 9: // year precision
-			date.startOf('year')
-			return { min: date, max: date.clone() }
+			return { min: date.clone().startOf('year'), max: date.clone().endOf('year') }
 		case 10: // month precision
 			date.startOf('month')
-			return { min: date, max: date.clone() }
+			return { min: date.clone().startOf('month'), max: date.clone().endOf('month') }
 		case 11: // day precision
 			date.startOf('day')
-			return { min: date, max: date.clone() }
+			return { min: date.clone().startOf('day'), max: date.clone().endOf('day') }
 		case 12: // hour precision
 			date.startOf('hour')
-			return { min: date, max: date.clone() }
+			return { min: date.clone().startOf('hour'), max: date.clone().endOf('hour') }
 		case 13: // minute precision
 			date.startOf('minute')
-			return { min: date, max: date.clone() }
+			return { min: date.clone().startOf('minute'), max: date.clone().endOf('minute') }
 		case 14: // second precision
 			date.startOf('second')
-			return { min: date, max: date.clone() }
+			return { min: date.clone().startOf('second'), max: date.clone().endOf('second') }
 		default:
 			throw `Unrecognized date precision ${inTime.precision}`
 	}
@@ -164,6 +161,89 @@ function produceOutput(items)
 		outputObject.items.push(item)
 	}
 
+	// group items with prev/next data into prev/next chains
+	const successionChains = []
+	for (const item of items)
+	{
+		// try to append to an existing chain
+		//TODO: does not support branching chains
+		var nextForChain = null
+		var prevForChain = null
+		for (const chain of successionChains)
+		{
+			if ((item.next && item.next == chain[0].entity)
+				&& (chain[0].previous && item.entity == chain[0].previous))
+			{
+				prevForChain = chain
+			}
+			if ((item.previous && item.previous == chain.at(-1).entity)
+				&& (chain.at(-1).next && item.entity == chain.at(-1).next))
+			{
+				nextForChain = chain
+			}
+		}
+
+		if (nextForChain && prevForChain)
+		{
+			// merge chains
+			nextForChain.push(item)
+			if (nextForChain != prevForChain) //wtf
+			{
+				for (const prevItem of prevForChain) nextForChain.push(prevItem)
+				const prevForChainIdx = successionChains.indexOf(prevForChain)
+				successionChains.splice(prevForChainIdx, 1)
+			}
+		}
+		else if (nextForChain)
+		{
+			nextForChain.push(item)
+		}
+		else if (prevForChain)
+		{
+			prevForChain.unshift(item)
+		}
+		else
+		{
+			successionChains.push([ item ])
+		}
+
+		// DEBUG: validate
+		/*for (const chain of successionChains)
+		{
+			for (var i2 = 0; i2 < chain.length - 1; i2++)
+			{
+				assert(chain[i2].entity == chain[i2+1].previous)
+			}
+			for (var i2 = 1; i2 < chain.length; i2++)
+			{
+				assert(chain[i2].entity == chain[i2-1].next)
+			}
+		}*/
+	}
+
+	// split overlapped uncertain regions between adjacent items
+	//TODO: create a shared area that visually makes it more clear that the line can slide around?
+	//TODO: handle multiple entire elements that overlap
+	for (const chain of successionChains)
+	{
+		for (var chainIndex = 0; chainIndex < chain.length - 1; chainIndex++)
+		{
+			var curr = chain[chainIndex]
+			var next = chain[chainIndex + 1]
+			if (!curr.end_min || !next.start_min) continue
+			var overlapStart = moment.max(curr.end_min, next.start_min)
+			var overlapEnd = moment.min(curr.end_max, next.start_max)
+			if (overlapStart < overlapEnd)
+			{
+				var middle = moment((overlapStart.valueOf() + overlapEnd.valueOf()) / 2)
+				curr.end_max = middle.clone()
+				next.start_min = middle
+			}
+		}
+	}
+
+	// create timeline items
+	// a single input item might be built of multiple timeline segments
 	var outputObject = { items: [], groups: wikidata.inputSpec.groups, options: wikidata.inputSpec.options }
 	for (const item of items)
 	{
@@ -550,22 +630,13 @@ entryPoint()
 				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end_min))
 				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end_max))
 
-				if (aggregateStart.min && aggregateStart.min.isSame(aggregateEnd.max))
-				{
-					if (entityResult.end && entityResult.end.precision == 9)
-					{
-						// special case: allow uncertain years to span to the end of the year if the entire duration is within the year
-						//TODO: could probably use refining
-						aggregateStart.max.endOf('year')
-						aggregateEnd.max.endOf('year')
-					}
-				}
-
 				var aggregateResult = {
 					start_min: aggregateStart.min,
 					start_max: aggregateStart.max,
 					end_min: aggregateEnd.min,
-					end_max: aggregateEnd.max
+					end_max: aggregateEnd.max,
+					previous: entityResult.previous,
+					next: entityResult.next
 				}
 				func(item, aggregateResult)
 				item.finished = true
@@ -612,6 +683,8 @@ entryPoint()
 					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].value))
 					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].min))
 					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].max))
+					aggregateResult.previous = aggregateResult.previous ?? entityResult[i].previous //HACK: does not handle multiple values
+					aggregateResult.next = aggregateResult.previous ?? entityResult[i].next
 				}
 				
 				// there may be multiple source items making the same query
@@ -639,16 +712,18 @@ entryPoint()
 			{
 				const result = await wikidata.runTimeQueryTerm(representativeItem.startQuery, bundle)
 				copySingleResult(result, function(item, result) {
-					item.start_min = result.min;
-					item.start_max = result.max;
+					item.start_min = result.min
+					item.start_max = result.max
+					item.previous = result.previous
 				})
 			}
 			if (representativeItem.endQuery)
 			{
 				const result = await wikidata.runTimeQueryTerm(representativeItem.endQuery, bundle)
 				copySingleResult(result, function(item, result) {
-					item.end_min = result.min;
-					item.end_max = result.max;
+					item.end_min = result.min
+					item.end_max = result.max
+					item.next = result.next
 				})
 			}
 		}
