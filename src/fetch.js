@@ -152,6 +152,8 @@ function getExpectation(item)
 // produces JSON output from the queried data
 function produceOutput(items)
 {
+	console.log("Producing output...")
+	
 	const finalizeItem = function(item)
 	{
 		assert(item.start)
@@ -162,6 +164,7 @@ function produceOutput(items)
 	}
 
 	// group items with prev/next data into prev/next chains
+	//TODO: also use 'series ordinal' property for hinting
 	const successionChains = []
 	for (const item of items)
 	{

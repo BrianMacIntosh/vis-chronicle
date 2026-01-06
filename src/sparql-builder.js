@@ -8,17 +8,22 @@ module.exports = class SparqlBuilder
 	constructor()
 	{
 		this.outParams = []
+		this.groupParams = []
 		this.queryTerms = []
 	}
 
 	// Adds an output parameter to the query
-	addOutParam(paramName)
+	addOutParam(paramName, params)
 	{
 		//TODO: validate name more
 		assert(paramName)
 		if (this.outParams.indexOf(paramName) < 0)
 		{
 			this.outParams.push(paramName)
+		}
+		if (params && params.groupBy && this.groupParams.indexOf(paramName) < 0)
+		{
+			this.groupParams.push(paramName)
 		}
 	}
 
@@ -40,21 +45,21 @@ module.exports = class SparqlBuilder
 		this.queryTerms.push(`OPTIONAL{${term}}`)
 	}
 
-	addTimeTerm(term, valueVar, timeVar, precisionVar)
+	addTimeTerm(term, valueVar, timeVar, precisionVar, params)
 	{
 		assert(term)
 		
-		this.addOutParam(timeVar)
-		this.addOutParam(precisionVar)
+		this.addOutParam(timeVar, params)
+		this.addOutParam(precisionVar, params)
 		this.addQueryTerm(`${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}.`)
 	}
 
-	addOptionalTimeTerm(term, valueVar, timeVar, precisionVar)
+	addOptionalTimeTerm(term, valueVar, timeVar, precisionVar, params)
 	{
 		assert(term)
 		
-		this.addOutParam(timeVar)
-		this.addOutParam(precisionVar)
+		this.addOutParam(timeVar, params)
+		this.addOutParam(precisionVar, params)
 		this.addOptionalQueryTerm(`${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}.`)
 	}
 
@@ -71,6 +76,7 @@ module.exports = class SparqlBuilder
 
 		//TODO: prevent injection
 		const distinct = this.distinct ? "DISTINCT" : ""
-		return `SELECT ${distinct} ${this.outParams.join(" ")} WHERE{${this.queryTerms.join(" ")}}`
+		const groupBy = this.groupParams.length > 0 ? `GROUP BY ${this.groupParams.join(' ')}` : ''
+		return `SELECT ${distinct} ${this.outParams.join(" ")} WHERE{${this.queryTerms.join(" ")}}${groupBy}`
 	}
 }

@@ -318,27 +318,27 @@ const wikidata = module.exports = {
 			targetEntities.add(`wd:${item.entity}`)
 		}
 		queryBuilder.addQueryTerm(`VALUES ${entityVar}{${[...targetEntities].join(' ')}}`)
-		queryBuilder.addOutParam(entityVar)
+		queryBuilder.addOutParam(entityVar, { groupBy: true })
 
-		queryBuilder.addOutParam(rankVar)
+		queryBuilder.addOutParam(rankVar, { groupBy: true })
 		if (queryTerm.general)
 		{
 			queryBuilder.addQueryTerm(queryTerm.general)
 		}
 		if (queryTerm.value) //TODO: could unify better with loop below?
 		{
-			queryBuilder.addTimeTerm(queryTerm.value, "?_value", "?_value_ti", "?_value_pr")
+			queryBuilder.addTimeTerm(queryTerm.value, "?_value", "?_value_ti", "?_value_pr", { groupBy: true })
 		}
 		for (const termKey of termTimeKeys)
 		{
 			if (!queryTerm[termKey]) continue
 			if (termKey == "general" || termKey == "value") continue
-			queryBuilder.addOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`)
+			queryBuilder.addOptionalTimeTerm(queryTerm[termKey], `?_${termKey}_value`, `?_${termKey}_ti`, `?_${termKey}_pr`, { groupBy: true })
 		}
 		for (const termKey of termOtherKeys)
 		{
 			if (!queryTerm[termKey]) continue
-			queryBuilder.addOutParam(`?_${termKey}_value`)
+			queryBuilder.addOutParam(`(SAMPLE(?_${termKey}_value) AS ?_${termKey}_out)`) //HACK: does not support multiple values
 			queryBuilder.addOptionalQueryTerm(queryTerm[termKey])
 		}
 		queryBuilder.addOptionalQueryTerm(`${propVar} wikibase:rank ${rankVar}.`)
@@ -370,9 +370,10 @@ const wikidata = module.exports = {
 			}
 			for (const termKey of termOtherKeys)
 			{
-				if (binding[`_${termKey}_value`])
+				const termOtherVar = `_${termKey}_out`
+				if (binding[termOtherVar])
 				{
-					result[termKey] = wikidata.extractQidFromUrl(binding[`_${termKey}_value`].value)
+					result[termKey] = wikidata.extractQidFromUrl(binding[termOtherVar].value)
 				}
 			}
 			return result
