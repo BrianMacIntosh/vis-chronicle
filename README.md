@@ -100,3 +100,4 @@ Item properties:
 
 `chronicle` contains configuration for chronicle itself (not passed through to the output):
 * `defaultLabel`: Default format string to use for item labels without `label`. See `label`.
+* `maxUncertainTimePrecision`: Maximum Wikidata time precision to treat as uncertain. Higher values can help clean up artifacty uncertainty ranges. Default is 10 (month).

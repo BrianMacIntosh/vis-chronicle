@@ -95,6 +95,9 @@ const wikidata = module.exports = {
 
 		if (!this.inputSpec.chronicle.defaultLabel)
 			this.inputSpec.chronicle.defaultLabel = '<a target="_blank" href="https://www.wikidata.org/wiki/{_QID}">{_LABEL}</a>'
+
+		if (!this.inputSpec.chronicle.maxUncertainTimePrecision)
+			this.inputSpec.chronicle.maxUncertainTimePrecision = 10
 	},
 
 	readCache: async function()

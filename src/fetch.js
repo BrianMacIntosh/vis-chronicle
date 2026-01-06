@@ -69,6 +69,11 @@ wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
 wikidata.initialize()
 
+const wikidataToMomentPrecision = [
+	undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+	'year', 'month', 'day', 'hour', 'minute', 'second'
+]
+
 // produces a range of moments {min,max} from a Wikidata time
 function wikidataToRange(inTime)
 {
@@ -95,25 +100,21 @@ function wikidataToRange(inTime)
 				min: moment({year:roundedYear}),
 				max: moment({year:roundedYear + yearBase}).subtract(1, 'minute').endOf('year')
 			}
-		case 9: // year precision
-			return { min: date.clone().startOf('year'), max: date.clone().endOf('year') }
-		case 10: // month precision
-			date.startOf('month')
-			return { min: date.clone().startOf('month'), max: date.clone().endOf('month') }
-		case 11: // day precision
-			date.startOf('day')
-			return { min: date.clone().startOf('day'), max: date.clone().endOf('day') }
-		case 12: // hour precision
-			date.startOf('hour')
-			return { min: date.clone().startOf('hour'), max: date.clone().endOf('hour') }
-		case 13: // minute precision
-			date.startOf('minute')
-			return { min: date.clone().startOf('minute'), max: date.clone().endOf('minute') }
-		case 14: // second precision
-			date.startOf('second')
-			return { min: date.clone().startOf('second'), max: date.clone().endOf('second') }
 		default:
-			throw `Unrecognized date precision ${inTime.precision}`
+			if (inTime.precision > wikidata.inputSpec.chronicle.maxUncertainTimePrecision)
+			{
+				const momentPrecision = wikidataToMomentPrecision[inTime.precision]
+				return { min: date.clone().startOf(momentPrecision), max: date.clone().startOf(momentPrecision) }
+			}
+			else if (inTime.precision < wikidataToMomentPrecision.length)
+			{
+				const momentPrecision = wikidataToMomentPrecision[inTime.precision]
+				return { min: date.clone().startOf(momentPrecision), max: date.clone().endOf(momentPrecision) }
+			}
+			else
+			{
+				throw `Unrecognized date precision ${inTime.precision}`
+			}
 	}
 }
 
