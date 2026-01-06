@@ -12,7 +12,7 @@
 }
 .visc-uncertain
 {
-	background: repeating-linear-gradient(45deg, #00000060, #00000060 8px, transparent 8px, transparent 16px)
+	background: repeating-linear-gradient(45deg, #00000032, #00000032 8px, transparent 8px, transparent 16px)
 }
 .vis-item.vis-range.visc-right-connection, .vis-item.vis-range.visc-left-tail
 {
