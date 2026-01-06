@@ -246,7 +246,7 @@ function produceOutput(items)
 			{
 				var middle = moment((overlapStart.valueOf() + overlapEnd.valueOf()) / 2)
 				curr.end_max = middle.clone()
-				next.start_min = middle
+				next.start_min = middle.add(1, 'second')
 			}
 		}
 	}
