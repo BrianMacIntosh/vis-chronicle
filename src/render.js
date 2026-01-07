@@ -59,15 +59,6 @@ renderer.produceOutput = function(inputSpec, items)
 {
 	console.log("Producing output...")
 	
-	const finalizeItem = function(item)
-	{
-		assert(item.start)
-		item.start = item.start.format("YYYYYY-MM-DDThh:mm:ss")
-		if (item.end)
-			item.end = item.end.format("YYYYYY-MM-DDThh:mm:ss")
-		outputObject.items.push(item)
-	}
-
 	// group items with prev/next data into prev/next chains
 	//TODO: also use 'series ordinal' property for hinting
 	const successionChains = []
@@ -160,7 +151,8 @@ renderer.produceOutput = function(inputSpec, items)
 			content: item.label,
 			className: item.className,
 			comment: item.comment,
-			type: item.type
+			type: item.type,
+			wikidata: item.entity
 		}
 		if (item.group)
 		{
@@ -207,8 +199,7 @@ renderer.produceOutput = function(inputSpec, items)
 			outputItem.className = [ outputItem.className, 'visc-uncertain' ].join(' ')
 			outputItem.start = item.start_min
 			outputItem.end = item.end_max
-
-			finalizeItem(outputItem)
+			outputObject.items.push(outputItem)
 			continue
 		}
 
@@ -219,8 +210,7 @@ renderer.produceOutput = function(inputSpec, items)
 			outputItem.start = moment((item.start_min.valueOf() + item.start_max.valueOf()) / 2)
 			if (item.end_min && item.end_max)
 				outputItem.end = moment((item.end_min.valueOf() + item.end_max.valueOf()) / 2)
-
-			finalizeItem(outputItem)
+			outputObject.items.push(outputItem)
 			continue
 		}
 
@@ -240,10 +230,11 @@ renderer.produceOutput = function(inputSpec, items)
 					id: outputItem.id + "-unc-end",
 					className: [outputItem.className, "visc-uncertain", "visc-left-connection"].join(' '),
 					content: item.label ? "&nbsp;" : "",
-					start: uncertainMin.format("YYYYYY-MM-DDThh:mm:ss"),
-					end: item.end_max.format("YYYYYY-MM-DDThh:mm:ss"),
+					start: uncertainMin,
+					end: item.end_max,
 					group: item.group,
-					subgroup: outputItem.subgroup
+					subgroup: outputItem.subgroup,
+					wikidata: item.entity
 				})
 
 				// adjust normal range to match
@@ -285,10 +276,11 @@ renderer.produceOutput = function(inputSpec, items)
 				id: outputItem.id + "-tail",
 				className: [outputItem.className, "visc-right-tail"].join(' '),
 				content: item.label ? "&nbsp;" : "",
-				start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
-				end: tailEnd.format("YYYYYY-MM-DDThh:mm:ss"),
+				start: outputItem.end,
+				end: tailEnd,
 				group: item.group,
-				subgroup: outputItem.subgroup
+				subgroup: outputItem.subgroup,
+				wikidata: item.entity
 			})
 
 			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
@@ -306,10 +298,11 @@ renderer.produceOutput = function(inputSpec, items)
 					id: outputItem.id + "-tail",
 					className: [outputItem.className, "visc-right-tail"].join(' '),
 					content: item.label ? "&nbsp;" : "",
-					start: outputItem.end.format("YYYYYY-MM-DDThh:mm:ss"),
-					end: tailEnd.format("YYYYYY-MM-DDThh:mm:ss"),
+					start: outputItem.end,
+					end: tailEnd,
 					group: item.group,
-					subgroup: outputItem.subgroup
+					subgroup: outputItem.subgroup,
+					wikidata: item.entity
 				})
 
 				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
@@ -320,7 +313,7 @@ renderer.produceOutput = function(inputSpec, items)
 				outputItem.start = item.start_min ?? item.start_max
 				outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
 				outputItem.className = [ outputItem.className, 'visc-open-right' ].join(' ')
-				finalizeItem(outputItem)
+				outputObject.items.push(outputItem)
 				continue
 			}
 		}
@@ -347,10 +340,11 @@ renderer.produceOutput = function(inputSpec, items)
 					id: outputItem.id + "-unc-start",
 					className: [outputItem.className, "visc-uncertain", "visc-right-connection"].join(' '),
 					content: item.label ? "&nbsp;" : "",
-					start: item.start_min.format("YYYYYY-MM-DDThh:mm:ss"),
-					end: uncertainMax.format("YYYYYY-MM-DDThh:mm:ss"),
+					start: item.start_min,
+					end: uncertainMax,
 					group: item.group,
-					subgroup: outputItem.subgroup
+					subgroup: outputItem.subgroup,
+					wikidata: item.entity
 				})
 
 				// adjust normal range to match
@@ -374,13 +368,89 @@ renderer.produceOutput = function(inputSpec, items)
 		//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
 		//TODO: accept expected durations and place uncertainly before/after those
 
-		finalizeItem(outputItem)
+		outputObject.items.push(outputItem)
 	}
 
-	// organize "subgroups" into interlocking rows
-	// visjs can do this with stackSubgroups: false, but it's kind of twitchy,
-	// so we'll do it statically here instead
-	//TODO:
+	// sort the objects into subgroups
+	//NOTE: allows same subgroup to be separate across different groups, unlike vis natively
+	const stackGroups = {}
+	for (const outputItem of outputObject.items)
+	{
+		if (outputItem.type == "background") continue
+
+		var stackGroup = stackGroups[outputItem.group]
+		if (!stackGroup) stackGroup = stackGroups[outputItem.group] = {}
+		var stackSubgroup = stackGroup[outputItem.subgroup]
+		if (!stackSubgroup) stackSubgroup = stackGroup[outputItem.subgroup] = { objects: [] }
+		stackSubgroup.objects.push(outputItem)
+		assert(outputItem.start)
+		stackSubgroup.min = stackSubgroup.min ? moment.min(stackSubgroup.min, outputItem.start) : outputItem.start
+		if (outputItem.end)
+			stackSubgroup.max = stackSubgroup.max ? moment.max(stackSubgroup.max, outputItem.end) : outputItem.end
+	}
+
+	for (const stackGroupKey in stackGroups)
+	{
+		const stackGroup = stackGroups[stackGroupKey]
+
+		// sort the subgroups from this group by start time ascending
+		const stackSubgroupsArr = []
+		for (const stackSubgroup of Object.values(stackGroup)) stackSubgroupsArr.push(stackSubgroup)
+		stackSubgroupsArr.sort((a, b) => a.min.valueOf() - b.min.valueOf())
+
+		// drop subgroups into interlocking rows
+		// visjs can do this with stackSubgroups: false, but it's kind of twitchy,  so we'll do it statically here instead
+		const sublines = []
+		for (const stackSubgroup of stackSubgroupsArr)
+		{
+			var placed = false
+			for (var i = 0; i < sublines.length; i++)
+			{
+				// if the new subgroup overlaps nothing in this line, it can be added
+				var overlap = false
+				for (const sublineItem of sublines[i])
+				{
+					if (stackSubgroup.min < sublineItem.max && stackSubgroup.max > sublineItem.min)
+					{
+						overlap = true
+						break
+					}
+				}
+				if (!overlap)
+				{
+					sublines[i].push(stackSubgroup)
+					placed = true
+					break
+				}
+			}
+			if (!placed)
+			{
+				sublines.push([stackSubgroup])
+			}
+		}
+
+		// reassign all items to new subgroups based on the line they are in
+		for (const sublineIndex in sublines)
+		{
+			const sublineSubgroup = `${stackGroupKey}#${sublineIndex}`
+			for (const stackSubgroup of sublines[sublineIndex])
+			{
+				for (const object of stackSubgroup.objects)
+				{
+					object.subgroup = sublineSubgroup
+				}
+			}
+		}
+	}
+
+	// finalize all item times from moment to string
+	for (const item of outputObject.items)
+	{
+		assert(item.start)
+		item.start = item.start.format("YYYYYY-MM-DDThh:mm:ss")
+		if (item.end)
+			item.end = item.end.format("YYYYYY-MM-DDThh:mm:ss")
+	}
 
 	delete outputObject.chronicle
 
