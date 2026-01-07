@@ -4,6 +4,7 @@
 
 const path = require('path')
 const nodeutil = require('node:util')
+const assert = require('node:assert/strict');
 
 // parse args
 const { values, positionals } = nodeutil.parseArgs({
@@ -93,6 +94,22 @@ function wikidataToRange(inTime)
 				throw `Unrecognized date precision ${inTime.precision}`
 			}
 	}
+}
+
+function rangeUnionAdv(value, min, max)
+{
+	var aggregate = value ?? {}
+	if (min)
+	{
+		assert(min.min)
+		aggregate.min = aggregate.min ? moment.max(min.min, aggregate.min) : min.min
+	}
+	if (max)
+	{
+		assert(max.max)
+		aggregate.max = aggregate.max ? moment.min(max.max, aggregate.max) : max.max
+	}
+	return aggregate
 }
 
 function rangeUnion(a, b)
@@ -250,16 +267,14 @@ entryPoint()
 		{
 			const aggregateHelper = function(item, entityResult)
 			{
-				//TODO: disregard value if min and max are present? See Q33941
-				var aggregateStart = {}
-				aggregateStart = rangeUnion(aggregateStart, wikidataToRange(entityResult.start))
-				aggregateStart = rangeUnion(aggregateStart, wikidataToRange(entityResult.start_min))
-				aggregateStart = rangeUnion(aggregateStart, wikidataToRange(entityResult.start_max))
-
-				var aggregateEnd = {}
-				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end))
-				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end_min))
-				aggregateEnd = rangeUnion(aggregateEnd, wikidataToRange(entityResult.end_max))
+				var aggregateStart = rangeUnionAdv(
+					wikidataToRange(entityResult.start),
+					wikidataToRange(entityResult.start_min),
+					wikidataToRange(entityResult.start_max))
+				var aggregateEnd = rangeUnionAdv(
+					wikidataToRange(entityResult.end),
+					wikidataToRange(entityResult.end_min),
+					wikidataToRange(entityResult.end_max))
 
 				var aggregateResult = {
 					start_min: aggregateStart.min,
@@ -311,9 +326,11 @@ entryPoint()
 				var aggregateResult = {}
 				for (var i = 0; i < entityResult.length; ++i)
 				{
-					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].value))
-					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].min))
-					aggregateResult = rangeUnion(aggregateResult, wikidataToRange(entityResult[i].max))
+					var selfAggregate = rangeUnionAdv(
+						wikidataToRange(entityResult[i].value),
+						wikidataToRange(entityResult[i].min),
+						wikidataToRange(entityResult[i].max))
+					aggregateResult = rangeUnion(aggregateResult, selfAggregate)
 					aggregateResult.previous = aggregateResult.previous ?? entityResult[i].previous //HACK: does not handle multiple values
 					aggregateResult.next = aggregateResult.previous ?? entityResult[i].next
 				}
