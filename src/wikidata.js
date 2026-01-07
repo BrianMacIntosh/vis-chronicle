@@ -303,14 +303,14 @@ const wikidata = module.exports = {
 		const propVar = '?_prop'
 		const rankVar = '?_rank'
 
-		const queryBuilder = new SparqlBuilder()
-		queryBuilder.addCacheBuster(this.cacheBuster)
-
 		// create a dummy item representing the collective items
 		//TODO: validate that they match
 		item = { ...items[0] }
 		item.entity = entityVar
 		item.id = "DUMMY"
+
+		const queryBuilder = new SparqlBuilder()
+		queryBuilder.addCacheBuster(item.cacheBuster ? item.cacheBuster : this.cacheBuster)
 
 		queryTerm = this.getValueQueryTerm(queryTermStr, item)
 		
