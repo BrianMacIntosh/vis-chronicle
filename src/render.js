@@ -183,6 +183,8 @@ renderer.produceOutput = function(inputSpec, items)
 		// restrict uncertainty based on expectations
 		//TODO:
 
+		var needsTopLabel = false
+
 		// exclude items that violate itemRange constraints
 		//OPT: do this at an earlier stage? (e.g. when running the first query)
 		if (item.itemRange)
@@ -228,7 +230,7 @@ renderer.produceOutput = function(inputSpec, items)
 				// add uncertain range
 				outputObject.items.push({
 					id: outputItem.id + "-unc-end",
-					className: [outputItem.className, "visc-uncertain", "visc-left-connection"].join(' '),
+					className: [outputItem.className, "visc-uncertain", "visc-bg-overlay", "visc-left-connection"].join(' '),
 					content: item.label ? "&nbsp;" : "",
 					start: uncertainMin,
 					end: item.end_max,
@@ -236,16 +238,10 @@ renderer.produceOutput = function(inputSpec, items)
 					subgroup: outputItem.subgroup,
 					wikidata: item.entity
 				})
-
-				// adjust normal range to match
-				outputItem.end = uncertainMin
-				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+				needsTopLabel = true
 			}
-			else
-			{
-				// certain end
-				outputItem.end = item.end_max;
-			}
+			
+			outputItem.end = item.end_max;
 		}
 		else if (item.end_min && item.start_max < item.end_min)
 		{
@@ -338,7 +334,7 @@ renderer.produceOutput = function(inputSpec, items)
 				// add uncertain range
 				outputObject.items.push({
 					id: outputItem.id + "-unc-start",
-					className: [outputItem.className, "visc-uncertain", "visc-right-connection"].join(' '),
+					className: [outputItem.className, "visc-uncertain", "visc-bg-overlay", "visc-right-connection"].join(' '),
 					content: item.label ? "&nbsp;" : "",
 					start: item.start_min,
 					end: uncertainMax,
@@ -346,17 +342,10 @@ renderer.produceOutput = function(inputSpec, items)
 					subgroup: outputItem.subgroup,
 					wikidata: item.entity
 				})
-
-				// adjust normal range to match
-				//TODO: handle the entire range being uncertain
-				outputItem.start = uncertainMax
-				outputItem.className = [ outputItem.className, 'visc-left-connection' ].join(' ')
+				needsTopLabel = true
 			}
-			else
-			{
-				// certain start
-				outputItem.start = item.start_min
-			}
+			
+			outputItem.start = item.start_min
 		}
 		else if (!item.start_min)
 		{
@@ -367,6 +356,15 @@ renderer.produceOutput = function(inputSpec, items)
 		
 		//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
 		//TODO: accept expected durations and place uncertainly before/after those
+
+		if (needsTopLabel && item.label)
+		{
+			const labelItem = {...outputItem}
+			labelItem.id += "-label"
+			labelItem.className = [labelItem.className, "visc-toplabel"].join(' '),
+			outputObject.items.push(labelItem)
+			outputItem.content = outputItem.content ? "&nbsp;" : ""
+		}
 
 		outputObject.items.push(outputItem)
 	}

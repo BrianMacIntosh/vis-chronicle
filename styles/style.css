@@ -10,9 +10,21 @@
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0));
 }
-.visc-uncertain
+.vis-item.visc-uncertain
 {
-	background: repeating-linear-gradient(45deg, #00000032, #00000032 8px, transparent 8px, transparent 16px)
+	background: repeating-linear-gradient(45deg, #404040, #404040 8px, #4d4d4d 8px, #4d4d4d 16px);
+	border-style: dashed;
+}
+.visc-bg-overlay
+{
+	z-index: 2;
+}
+.vis-item.visc-toplabel
+{
+	z-index: 3;
+	background: none !important;
+	background-color: transparent !important;
+	border: 0;
 }
 .vis-item.vis-range.visc-right-connection, .vis-item.vis-range.visc-left-tail
 {
