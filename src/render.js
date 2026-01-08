@@ -471,9 +471,15 @@ renderer.produceOutput = function(inputSpec, items)
 				for (const object of stackSubgroup.objects)
 				{
 					object.subgroup = sublineSubgroup
+					object.lineNum = parseInt(sublineIndex)
 				}
 			}
 		}
+
+		// explicitly order the lines
+		var groupData = outputObject.groups.find(g => g.id == stackGroupKey)
+		if (!groupData) groupData = outputObject.groups[stackGroupKey] = { id: stackGroupKey }
+		if (!groupData.subgroupOrder) groupData.subgroupOrder = "lineNum"
 	}
 
 	// finalize all item times from moment to string
