@@ -183,7 +183,12 @@ renderer.produceOutput = function(inputSpec, items)
 		// restrict uncertainty based on expectations
 		//TODO:
 
-		var needsTopLabel = false
+		// Can bg subcomponents be overlaid on the item?
+		// If false, they will actually be deducted from the main item.
+		var permitBgOverlay = item.type != "background"
+
+		// Were any bg overlays actually added to this item?
+		var usesBgOverlays = false
 
 		// exclude items that violate itemRange constraints
 		//OPT: do this at an earlier stage? (e.g. when running the first query)
@@ -238,10 +243,24 @@ renderer.produceOutput = function(inputSpec, items)
 					subgroup: outputItem.subgroup,
 					wikidata: item.entity
 				})
-				needsTopLabel = true
+
+				if (permitBgOverlay)
+				{
+					outputItem.end = item.end_max;
+					usesBgOverlays = true
+				}
+				else
+				{
+					// adjust normal range to match
+					outputItem.end = uncertainMin
+					outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+				}
 			}
-			
-			outputItem.end = item.end_max;
+			else
+			{
+				// certain end
+				outputItem.end = item.end_max;
+			}
 		}
 		else if (item.end_min && item.start_max < item.end_min)
 		{
@@ -332,6 +351,7 @@ renderer.produceOutput = function(inputSpec, items)
 				assert(uncertainMax)
 
 				// add uncertain range
+				//TODO: produce abutting ranges instead for background
 				outputObject.items.push({
 					id: outputItem.id + "-unc-start",
 					className: [outputItem.className, "visc-uncertain", "visc-bg-overlay", "visc-right-connection"].join(' '),
@@ -342,10 +362,24 @@ renderer.produceOutput = function(inputSpec, items)
 					subgroup: outputItem.subgroup,
 					wikidata: item.entity
 				})
-				needsTopLabel = true
+
+				if (permitBgOverlay)
+				{
+					outputItem.start = item.start_min;
+					usesBgOverlays = true
+				}
+				else
+				{
+					// adjust normal range to match
+					outputItem.start = uncertainMax
+					outputItem.className = [ outputItem.className, 'visc-left-connection' ].join(' ')
+				}
 			}
-			
-			outputItem.start = item.start_min
+			else
+			{
+				// certain start
+				outputItem.start = item.start_min;
+			}
 		}
 		else if (!item.start_min)
 		{
@@ -357,7 +391,8 @@ renderer.produceOutput = function(inputSpec, items)
 		//TODO: missing death dates inside expected duration: solid to NOW, fade after NOW
 		//TODO: accept expected durations and place uncertainly before/after those
 
-		if (needsTopLabel && item.label)
+		// if using bg overlays, the label needs to be on its own element so it can sort on top of them
+		if (usesBgOverlays && item.label)
 		{
 			const labelItem = {...outputItem}
 			labelItem.id += "-label"
