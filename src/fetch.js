@@ -303,6 +303,10 @@ entryPoint()
 						{
 							const newItem = structuredClone(item)
 							newItem.id = `${newItem.id}-v${i}`
+
+							// clones get new subgroups so they are treated as separate objects for stacking
+							newItem.subgroup = `${item.subgroup ? item.subgroup : item.entity}-clone${i}`
+
 							wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
 							aggregateHelper(newItem, entityResult[i])
 						}

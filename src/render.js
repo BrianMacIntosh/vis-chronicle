@@ -25,6 +25,16 @@ function postprocessGlobalData()
 }
 postprocessGlobalData()
 
+function momentSafeMin(a, b)
+{
+	return a ? (b ? moment.min(a, b) : a) : b
+}
+
+function momentSafeMax(a, b)
+{
+	return a ? (b ? moment.max(a, b) : a) : b
+}
+
 const renderer = {}
 
 renderer.getExpectation = function(item)
@@ -417,9 +427,9 @@ renderer.produceOutput = function(inputSpec, items)
 		if (!stackSubgroup) stackSubgroup = stackGroup[outputItem.subgroup] = { objects: [] }
 		stackSubgroup.objects.push(outputItem)
 		assert(outputItem.start)
-		stackSubgroup.min = stackSubgroup.min ? moment.min(stackSubgroup.min, outputItem.start) : outputItem.start
+		stackSubgroup.min = momentSafeMin(stackSubgroup.min, outputItem.start)
 		if (outputItem.end)
-			stackSubgroup.max = stackSubgroup.max ? moment.max(stackSubgroup.max, outputItem.end) : outputItem.end
+			stackSubgroup.max = momentSafeMax(stackSubgroup.max, outputItem.end)
 	}
 
 	for (const stackGroupKey in stackGroups)
