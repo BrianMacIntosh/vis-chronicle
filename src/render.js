@@ -210,7 +210,7 @@ renderer.produceOutput = function(inputSpec, items)
 				continue
 		}
 
-		if (item.start_max >= item.end_min)
+		if (item.start_max.clone().add(1, 'second') >= item.end_min)
 		{
 			// no certainty at all: create a single uncertain range
 			outputItem.className = [ outputItem.className, 'visc-uncertain' ].join(' ')
