@@ -100,4 +100,5 @@ Item properties:
 
 `chronicle` contains configuration for chronicle itself (not passed through to the output):
 * `defaultLabel`: Default format string to use for item labels without `label`. See `label`.
-* `maxUncertainTimePrecision`: Maximum Wikidata time precision to treat as uncertain. Higher values can help clean up artifacty uncertainty ranges. Default is 10 (month).
+* `maxUncertainTimePrecision`: Default `10` (month). Maximum Wikidata time precision to treat as uncertain. Cleans up tiny, artifacty uncertainty ranges.
+* `shareSuccessiveUncertainty`: Default `true`. If true, uncertain ends of successive items (related by P1365 'replaces' or P1366 'replaced by') can be truncated such that the items fit togther.

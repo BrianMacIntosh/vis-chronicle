@@ -69,84 +69,87 @@ renderer.produceOutput = function(inputSpec, items)
 {
 	console.log("Producing output...")
 	
-	// group items with prev/next data into prev/next chains
-	//TODO: also use 'series ordinal' property for hinting
-	const successionChains = []
-	for (const item of items)
+	if (inputSpec.chronicle.shareSuccessiveUncertainty)
 	{
-		// try to append to an existing chain
-		//TODO: does not support branching chains
-		var nextForChain = null
-		var prevForChain = null
+		// group items with prev/next data into prev/next chains
+		//TODO: also use 'series ordinal' property for hinting
+		const successionChains = []
+		for (const item of items)
+		{
+			// try to append to an existing chain
+			//TODO: does not support branching chains
+			var nextForChain = null
+			var prevForChain = null
+			for (const chain of successionChains)
+			{
+				if ((item.next && item.next == chain[0].entity)
+					&& (chain[0].previous && item.entity == chain[0].previous))
+				{
+					prevForChain = chain
+				}
+				if ((item.previous && item.previous == chain.at(-1).entity)
+					&& (chain.at(-1).next && item.entity == chain.at(-1).next))
+				{
+					nextForChain = chain
+				}
+			}
+
+			if (nextForChain && prevForChain)
+			{
+				// merge chains
+				nextForChain.push(item)
+				if (nextForChain != prevForChain) //wtf
+				{
+					for (const prevItem of prevForChain) nextForChain.push(prevItem)
+					const prevForChainIdx = successionChains.indexOf(prevForChain)
+					successionChains.splice(prevForChainIdx, 1)
+				}
+			}
+			else if (nextForChain)
+			{
+				nextForChain.push(item)
+			}
+			else if (prevForChain)
+			{
+				prevForChain.unshift(item)
+			}
+			else
+			{
+				successionChains.push([ item ])
+			}
+
+			// DEBUG: validate
+			/*for (const chain of successionChains)
+			{
+				for (var i2 = 0; i2 < chain.length - 1; i2++)
+				{
+					assert(chain[i2].entity == chain[i2+1].previous)
+				}
+				for (var i2 = 1; i2 < chain.length; i2++)
+				{
+					assert(chain[i2].entity == chain[i2-1].next)
+				}
+			}*/
+		}
+
+		// split overlapped uncertain regions between adjacent items
+		//TODO: create a shared area that visually makes it more clear that the line can slide around?
+		//TODO: handle multiple entire elements that overlap
 		for (const chain of successionChains)
 		{
-			if ((item.next && item.next == chain[0].entity)
-				&& (chain[0].previous && item.entity == chain[0].previous))
+			for (var chainIndex = 0; chainIndex < chain.length - 1; chainIndex++)
 			{
-				prevForChain = chain
-			}
-			if ((item.previous && item.previous == chain.at(-1).entity)
-				&& (chain.at(-1).next && item.entity == chain.at(-1).next))
-			{
-				nextForChain = chain
-			}
-		}
-
-		if (nextForChain && prevForChain)
-		{
-			// merge chains
-			nextForChain.push(item)
-			if (nextForChain != prevForChain) //wtf
-			{
-				for (const prevItem of prevForChain) nextForChain.push(prevItem)
-				const prevForChainIdx = successionChains.indexOf(prevForChain)
-				successionChains.splice(prevForChainIdx, 1)
-			}
-		}
-		else if (nextForChain)
-		{
-			nextForChain.push(item)
-		}
-		else if (prevForChain)
-		{
-			prevForChain.unshift(item)
-		}
-		else
-		{
-			successionChains.push([ item ])
-		}
-
-		// DEBUG: validate
-		/*for (const chain of successionChains)
-		{
-			for (var i2 = 0; i2 < chain.length - 1; i2++)
-			{
-				assert(chain[i2].entity == chain[i2+1].previous)
-			}
-			for (var i2 = 1; i2 < chain.length; i2++)
-			{
-				assert(chain[i2].entity == chain[i2-1].next)
-			}
-		}*/
-	}
-
-	// split overlapped uncertain regions between adjacent items
-	//TODO: create a shared area that visually makes it more clear that the line can slide around?
-	//TODO: handle multiple entire elements that overlap
-	for (const chain of successionChains)
-	{
-		for (var chainIndex = 0; chainIndex < chain.length - 1; chainIndex++)
-		{
-			var curr = chain[chainIndex]
-			var next = chain[chainIndex + 1]
-			if (!curr.end_min || !next.start_min) continue
-			var overlapStart = moment.max(curr.end_min, next.start_min)
-			var overlapEnd = moment.min(curr.end_max, next.start_max)
-			if (overlapStart < overlapEnd)
-			{
-				var middle = moment((overlapStart.valueOf() + overlapEnd.valueOf()) / 2)
-				curr.end_max = middle.clone()
-				next.start_min = middle.add(1, 'second')
+				var curr = chain[chainIndex]
+				var next = chain[chainIndex + 1]
+				if (!curr.end_min || !next.start_min) continue
+				var overlapStart = moment.max(curr.end_min, next.start_min)
+				var overlapEnd = moment.min(curr.end_max, next.start_max)
+				if (overlapStart < overlapEnd)
+				{
+					var middle = moment((overlapStart.valueOf() + overlapEnd.valueOf()) / 2)
+					curr.end_max = middle.clone()
+					next.start_min = middle.add(1, 'second')
+				}
 			}
 		}
 	}

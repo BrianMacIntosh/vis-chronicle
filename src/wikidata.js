@@ -93,11 +93,13 @@ const wikidata = module.exports = {
 		if (!this.inputSpec.chronicle)
 			this.inputSpec.chronicle = {}
 
-		if (!this.inputSpec.chronicle.defaultLabel)
-			this.inputSpec.chronicle.defaultLabel = '<a target="_blank" href="https://www.wikidata.org/wiki/{_QID}">{_LABEL}</a>'
-
-		if (!this.inputSpec.chronicle.maxUncertainTimePrecision)
-			this.inputSpec.chronicle.maxUncertainTimePrecision = 10
+		const chronicleOptions = this.inputSpec.chronicle
+		if (chronicleOptions.defaultLabel === undefined)
+			chronicleOptions.defaultLabel = '<a target="_blank" href="https://www.wikidata.org/wiki/{_QID}">{_LABEL}</a>'
+		if (chronicleOptions.maxUncertainTimePrecision === undefined)
+			chronicleOptions.maxUncertainTimePrecision = 10
+		if (chronicleOptions.shareSuccessiveUncertainty === undefined)
+			chronicleOptions.shareSuccessiveUncertainty = true
 	},
 
 	readCache: async function()
