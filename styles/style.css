@@ -1,21 +1,26 @@
-.vis-item.vis-range.visc-open-right
+.vis-item.vis-range.visc-open-right, .vis-item.vis-background.visc-open-right
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0));
 }
-.vis-item.vis-range.visc-open-left
+.vis-item.vis-range.visc-open-left, .vis-item.vis-background.visc-open-left
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) 50%);
 }
-.vis-item.vis-range.visc-open-both
+.vis-item.vis-range.visc-open-left, .vis-item.vis-background.visc-open-left
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0));
 }
-.vis-item.visc-uncertain
+.vis-item.vis-range.visc-uncertain
 {
-	background: repeating-linear-gradient(45deg, #404040, #404040 8px, #4d4d4d 8px, #4d4d4d 16px);
+	background: repeating-linear-gradient(45deg, #404040, #404040 8px, rgba(213, 221, 246, 0.4) 8px, rgba(213, 221, 246, 0.4) 16px);
 	border-style: dashed;
 }
-.visc-bg-overlay
+.vis-item.vis-background.visc-uncertain
+{
+	mask-image: repeating-linear-gradient(45deg, black, black 8px, transparent 8px, transparent 16px);
+	border: none;
+}
+.visc-range-overlay
 {
 	z-index: 2;
 }

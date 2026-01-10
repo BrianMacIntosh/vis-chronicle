@@ -272,20 +272,23 @@ renderer.produceOutput = function(inputSpec, items)
 				assert(uncertainMin)
 				
 				// add uncertain range
-				outputObject.items.push({
+				const uncertainElement = {
 					id: outputItem.id + "-unc-end",
-					className: [outputItem.className, "visc-uncertain", "visc-bg-overlay", "visc-left-connection"].join(' '),
+					className: [outputItem.className, "visc-uncertain", "visc-left-connection"].join(' '),
+					type: outputItem.type,
 					content: item.label ? "&nbsp;" : "",
 					start: uncertainMin,
 					end: item.end_max,
 					group: item.group,
 					subgroup: outputItem.subgroup,
 					wikidata: item.entity
-				})
+				}
+				outputObject.items.push(uncertainElement)
 
 				if (permitBgOverlay)
 				{
-					outputItem.end = item.end_max;
+					uncertainElement.className = [uncertainElement.className, "visc-range-overlay"].join(' ')
+					outputItem.end = item.end_max
 					usesBgOverlays = true
 				}
 				else
@@ -329,6 +332,7 @@ renderer.produceOutput = function(inputSpec, items)
 			outputObject.items.push({
 				id: outputItem.id + "-tail",
 				className: [outputItem.className, "visc-right-tail"].join(' '),
+				type: outputItem.type,
 				content: item.label ? "&nbsp;" : "",
 				start: outputItem.end,
 				end: tailEnd,
@@ -351,6 +355,7 @@ renderer.produceOutput = function(inputSpec, items)
 				outputObject.items.push({
 					id: outputItem.id + "-tail",
 					className: [outputItem.className, "visc-right-tail"].join(' '),
+					type: outputItem.type,
 					content: item.label ? "&nbsp;" : "",
 					start: outputItem.end,
 					end: tailEnd,
@@ -390,21 +395,23 @@ renderer.produceOutput = function(inputSpec, items)
 				assert(uncertainMax)
 
 				// add uncertain range
-				//TODO: produce abutting ranges instead for background
-				outputObject.items.push({
+				const uncertainElement = {
 					id: outputItem.id + "-unc-start",
-					className: [outputItem.className, "visc-uncertain", "visc-bg-overlay", "visc-right-connection"].join(' '),
+					className: [outputItem.className, "visc-uncertain", "visc-right-connection"].join(' '),
+					type: outputItem.type,
 					content: item.label ? "&nbsp;" : "",
 					start: item.start_min,
 					end: uncertainMax,
 					group: item.group,
 					subgroup: outputItem.subgroup,
 					wikidata: item.entity
-				})
+				}
+				outputObject.items.push(uncertainElement)
 
 				if (permitBgOverlay)
 				{
-					outputItem.start = item.start_min;
+					uncertainElement.className = [uncertainElement.className, "visc-range-overlay"].join(' ')
+					outputItem.start = item.start_min
 					usesBgOverlays = true
 				}
 				else
