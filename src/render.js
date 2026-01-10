@@ -134,21 +134,47 @@ renderer.produceOutput = function(inputSpec, items)
 
 		// split overlapped uncertain regions between adjacent items
 		//TODO: create a shared area that visually makes it more clear that the line can slide around?
-		//TODO: handle multiple entire elements that overlap
 		for (const chain of successionChains)
 		{
 			for (var chainIndex = 0; chainIndex < chain.length - 1; chainIndex++)
 			{
+				var nextIndex = chainIndex + 1
 				var curr = chain[chainIndex]
-				var next = chain[chainIndex + 1]
+				var next = chain[nextIndex]
 				if (!curr.end_min || !next.start_min) continue
+
 				var overlapStart = moment.max(curr.end_min, next.start_min)
 				var overlapEnd = moment.min(curr.end_max, next.start_max)
 				if (overlapStart < overlapEnd)
 				{
-					var middle = moment((overlapStart.valueOf() + overlapEnd.valueOf()) / 2)
-					curr.end_max = middle.clone()
-					next.start_min = middle.add(1, 'second')
+					// include any other items that are uncertain in the entire overlapped region
+					while (nextIndex < chain.length - 1)
+					{
+						// cannot proceed past items with certain regions
+						if (chain[nextIndex].start_max < chain[nextIndex].end_min) break
+
+						if (chain[nextIndex + 1].start_min <= overlapStart && chain[nextIndex + 1].start_max >= overlapEnd)
+						{
+							nextIndex++
+						}
+						else break
+					}
+					
+					// divide the overlapped region between the involved items
+					const itemCount = nextIndex - chainIndex + 1
+					const msStart = overlapStart.valueOf()
+					const msShare = (overlapEnd.valueOf() - msStart) / itemCount
+					chain[chainIndex].end_max = moment(msStart + msShare)
+					for (var j = 1; j < nextIndex - chainIndex; j++)
+					{
+						chain[chainIndex + j].start_min = moment(msStart + msShare * j).add(1, 'second')
+						chain[chainIndex + j].end_max = moment(msStart + msShare * (j+1))
+
+						// region was previously checked to be fully-uncertain
+						chain[chainIndex + j].start_max = chain[chainIndex + j].end_max.clone()
+						chain[chainIndex + j].end_min = chain[chainIndex + j].start_min.clone()
+					}
+					chain[nextIndex].start_min = moment(overlapEnd.valueOf() - msShare).add(1, 'second')
 				}
 			}
 		}
