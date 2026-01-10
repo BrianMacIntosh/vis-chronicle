@@ -325,6 +325,10 @@ const wikidata = module.exports = {
 		queryBuilder.addQueryTerm(`VALUES ${entityVar}{${[...targetEntities].join(' ')}}`)
 		queryBuilder.addOutParam(entityVar, { groupBy: true })
 
+		// Group by prop object so that multiple prev/next values on the same property are grouped,
+		// but different properties with different prev/next values are separate.
+		queryBuilder.addGroupParam(propVar)
+
 		queryBuilder.addOutParam(rankVar, { groupBy: true })
 		if (queryTerm.general)
 		{
@@ -343,7 +347,7 @@ const wikidata = module.exports = {
 		for (const termKey of termOtherKeys)
 		{
 			if (!queryTerm[termKey]) continue
-			queryBuilder.addOutParam(`(SAMPLE(?_${termKey}_value) AS ?_${termKey}_out)`) //HACK: does not support multiple values
+			queryBuilder.addOutParam(`(GROUP_CONCAT(DISTINCT ?_${termKey}_value; SEPARATOR=";") AS ?_${termKey}_out)`)
 			queryBuilder.addOptionalQueryTerm(queryTerm[termKey])
 		}
 		queryBuilder.addOptionalQueryTerm(`${propVar} wikibase:rank ${rankVar}.`)
@@ -378,7 +382,8 @@ const wikidata = module.exports = {
 				const termOtherVar = `_${termKey}_out`
 				if (binding[termOtherVar])
 				{
-					result[termKey] = wikidata.extractQidFromUrl(binding[termOtherVar].value)
+					const valueSplit = binding[termOtherVar].value.split(';')
+					result[termKey] = wikidata.extractQidFromUrl(valueSplit[0]) //HACK: does not support multiple values
 				}
 			}
 			return result

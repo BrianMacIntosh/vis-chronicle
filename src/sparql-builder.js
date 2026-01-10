@@ -21,7 +21,15 @@ module.exports = class SparqlBuilder
 		{
 			this.outParams.push(paramName)
 		}
-		if (params && params.groupBy && this.groupParams.indexOf(paramName) < 0)
+		if (params && params.groupBy)
+		{
+			this.addGroupParam(paramName)
+		}
+	}
+
+	addGroupParam(paramName)
+	{
+		if (this.groupParams.indexOf(paramName) < 0)
 		{
 			this.groupParams.push(paramName)
 		}
