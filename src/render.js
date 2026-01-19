@@ -71,6 +71,13 @@ renderer.produceOutput = function(inputSpec, items)
 	
 	if (inputSpec.chronicle.shareSuccessiveUncertainty)
 	{
+		// fill out missing data
+		for (const item of items)
+		{
+			if (item.start_min && !item.start_max && item.end_max) item.start_max = item.end_max.clone()
+			if (item.end_max && !item.end_min && item.start_min) item.end_min = item.start_min.clone()
+		}
+
 		// group items with prev/next data into prev/next chains
 		//TODO: also use 'series ordinal' property for hinting
 		const successionChains = []
