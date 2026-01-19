@@ -35,7 +35,7 @@
 			"next": "?_prop pq:P1366 ?_next_value."
 		},
 		"positionOrSubclassHeldJurisdictionStartEnd": {
-			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 [ wdt:P279+ {position} ]; pq:P1001 {jurisdiction}.",
+			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 [ wdt:P279* {position} ]; pq:P1001 {jurisdiction}.",
 			"start": "?_prop pqv:P580 ?_start_value.",
 			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
 			"start_max": "?_prop pqv:P8555 ?_start_max_value.",
@@ -54,7 +54,7 @@
 		"humansWithPosition": "?_node wdt:P39 {position}. ?_node wdt:P31 wd:Q5.",
 		"humansWithPositionJurisdiction": "?_node p:P39 [ ps:P39 {position}; pq:P1001 {jurisdiction} ]. ?_node wdt:P31 wd:Q5.",
 
-		"humansWithPositionOrSubclassJurisdiction": "?_node p:P39 [ ps:P39 [ wdt:P279+ {position} ]; pq:P1001 {jurisdiction}]."
+		"humansWithPositionOrSubclassJurisdiction": "?_node p:P39 [ ps:P39 [ wdt:P279* {position} ]; pq:P1001 {jurisdiction}]."
 	},
 	"expectations":
 	[
