@@ -18,7 +18,7 @@ The tool takes these parameters on the command line:
 * `-v[erbose]`: Print verbose output, including the actual queries being run.
 * `-skip-wd-cache`: Do not read anything from the local cache, query all data fresh.
 * `-q[uery-url]`: The URL of the SPARQL endpoint. Defaults to `https://query.wikidata.org/sparql`.
-* `-l[ang]`: Language priorities to use when fetching labels. Defaults to `en,mul`. See (SPARQL/SERVICE - Label)[https://en.wikibooks.org/wiki/SPARQL/SERVICE_-_Label].
+* `-l[ang]`: Language priorities to use when fetching labels. Defaults to `en,mul`. See [SPARQL/SERVICE - Label](https://en.wikibooks.org/wiki/SPARQL/SERVICE_-_Label).
 
 ## Example
 
