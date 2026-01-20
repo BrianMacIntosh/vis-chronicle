@@ -4,6 +4,8 @@ vis-chronicle is a tool to generate web-based timelines from Wikidata SPARQL que
 
 [vis-chronicle-demo](https://github.com/BrianMacIntosh/vis-chronicle-demo) is a demo application using this tool. View the output at https://brianmacintosh.github.io/vis-chronicle-demo/.
 
+![Screenshot of a timeline showing United States presidents and their terms.](assets/demo.png)
+
 ## Installation
 
 `npm install vis-chronicle --save-dev`
