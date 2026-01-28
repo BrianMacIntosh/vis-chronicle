@@ -14,7 +14,8 @@ const { values, positionals } = nodeutil.parseArgs({
 		"skip-wd-cache": { type: 'boolean', default: false },
 		"query-url": { type: 'string', short: 'q', default: "https://query.wikidata.org/sparql" },
 		"lang": { type: 'string', short: 'l', default: "en,mul" },
-		"cachebuster": { type: 'string', default: undefined}
+		"cachebuster": { type: 'string', default: undefined},
+		"out-metadata": { type: 'string', default: undefined}
 	}})
 	
 var specFile = positionals[0]
@@ -33,6 +34,8 @@ if (!outputFile)
 {
 	outputFile = "intermediate/timeline.json"
 }
+
+var metadataOutputFile = values["out-metadata"]
 
 const moment = require('moment')
 const fs = require('fs');
@@ -393,6 +396,20 @@ entryPoint()
 			console.error(err)
 		}
 	});
+
+	// write the metadata output file
+	if (metadataOutputFile)
+	{
+		await mypath.ensureDirectoryForFile(metadataOutputFile)
+
+		const metadataOutput = JSON.stringify(wikidata.inputSpec)
+		await fs.writeFile(metadataOutputFile, metadataOutput, err => {
+			if (err) {
+				console.error(`Error writing metadata output file:`)
+				console.error(err)
+			}
+		});
+	}
 
 })
 .catch((reason) => {
