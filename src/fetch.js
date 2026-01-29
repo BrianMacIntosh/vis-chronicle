@@ -101,16 +101,24 @@ function wikidataToRange(inTime)
 
 function rangeUnionAdv(value, min, max)
 {
-	var aggregate = value ?? {}
+	var aggregate = {}
 	if (min)
 	{
 		assert(min.min)
-		aggregate.min = aggregate.min ? moment.max(min.min, aggregate.min) : min.min
+		aggregate.min = min.min
+	}
+	else if (value && value.min)
+	{
+		aggregate.min = value.min
 	}
 	if (max)
 	{
 		assert(max.max)
-		aggregate.max = aggregate.max ? moment.min(max.max, aggregate.max) : max.max
+		aggregate.max = max.max
+	}
+	else if (value && value.max)
+	{
+		aggregate.max = value.max
 	}
 	return aggregate
 }
