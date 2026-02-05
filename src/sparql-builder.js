@@ -53,13 +53,11 @@ module.exports = class SparqlBuilder
 		this.queryTerms.push(`OPTIONAL{${term}}`)
 	}
 
-	addTimeTerm(term, valueVar, timeVar, precisionVar, params)
+	addTimeBreak(valueVar, timeVar, precisionVar, params)
 	{
-		assert(term)
-		
 		this.addOutParam(timeVar, params)
 		this.addOutParam(precisionVar, params)
-		this.addQueryTerm(`${term} ${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}.`)
+		this.addQueryTerm(`${valueVar} wikibase:timeValue ${timeVar}. ${valueVar} wikibase:timePrecision ${precisionVar}.`)
 	}
 
 	addOptionalTimeTerm(term, valueVar, timeVar, precisionVar, params)

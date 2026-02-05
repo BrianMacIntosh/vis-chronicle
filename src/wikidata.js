@@ -336,7 +336,8 @@ const wikidata = module.exports = {
 		}
 		if (queryTerm.value) //TODO: could unify better with loop below?
 		{
-			queryBuilder.addTimeTerm(queryTerm.value, "?_value", "?_value_ti", "?_value_pr", { groupBy: true })
+			queryBuilder.addQueryTerm(queryTerm.value)
+			queryBuilder.addTimeBreak("?_value", "?_value_ti", "?_value_pr", { groupBy: true })
 		}
 		for (const termKey of termTimeKeys)
 		{
