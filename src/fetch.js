@@ -41,7 +41,8 @@ const moment = require('moment')
 const fs = require('fs');
 const wikidata = require('./wikidata.js')
 const renderer = require('./render.js')
-const mypath = require("./mypath.js")
+const mypath = require("./mypath.js");
+const { flattenRelativeDate } = require('./index.js');
 
 wikidata.skipCache = values["skip-wd-cache"]
 wikidata.cacheBuster = values["cachebuster"]
@@ -214,7 +215,7 @@ entryPoint()
 })
 .then(async () => {
 
-	// run all the Wikidata queries
+	// run term-based Wikidata queries
 
 	const isQueryProperty = function(key)
 	{
@@ -232,13 +233,18 @@ entryPoint()
 			&& key != "className"
 			&& key != "entity"
 			&& key != "skipCache"
+			&& key != "startPath" && key != "endPath"
 	}
 
 	// bundle items that use the same queries
 	const queryBundles = {}
+	const pathQueries = []
 	for (const item of wikidata.inputSpec.items)
 	{
 		if (item.finished) continue
+
+		if (item.startPath) pathQueries.push(item.startPath)
+		if (item.endPath) pathQueries.push(item.endPath)
 
 		// the bundle key is the queries, as well as any wildcard parameters
 		const keyObject = {}
@@ -389,6 +395,39 @@ entryPoint()
 					item.next = result.next
 				})
 			}
+		}
+	}
+
+	// run path queries
+	console.log(`There are ${pathQueries.length} path queries.`)
+	await wikidata.runPathQueries(pathQueries)
+
+	// propagate path query results to items
+	for (const item of wikidata.inputSpec.items)
+	{
+		if (item.startPath)
+		{
+			const startTime = flattenRelativeDate(wikidata.pathCache, item.startPath)
+			if (startTime)
+			{
+				const range = wikidataToRange(startTime)
+				item.start_min = range.min
+				item.start_max = range.max
+			}
+			else
+				console.error(`Date for '${item.startPath}' wasn't cached.`)
+		}
+		if (item.endPath)
+		{
+			const endTime = flattenRelativeDate(wikidata.pathCache, item.endPath)
+			if (endTime)
+			{
+				const range = wikidataToRange(endTime)
+				item.end_min = range.min
+				item.end_max = range.max
+			}
+			else
+				console.error(`Date for '${item.endPath}' wasn't cached.`)
 		}
 	}
 })

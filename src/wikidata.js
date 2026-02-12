@@ -11,10 +11,28 @@ const wikidata = module.exports = {
 	inputSpec: null,
 	verboseLogging: false,
 
+	/**
+	 * 
+	 */
 	cache: {},
+
+	/**
+	 * Caches results for path queries, using the path as the key.
+	 */
+	pathCache: {},
+
 	skipCache: false,
 	cacheBuster: undefined,
+
+	/**
+	 * Relative path to the term cache file.
+	 */
 	termCacheFile: "intermediate/wikidata-term-cache.json",
+
+	/**
+	 * Relative path to the path cache file.
+	 */
+	pathCacheFile: "intermediate/wikidata-path-cache.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
 	lang: "en,mul",
@@ -113,6 +131,16 @@ const wikidata = module.exports = {
 		{
 			// cache doesn't exist or is invalid; continue without it
 		}
+
+		try
+		{
+			const contents = await fs.promises.readFile(this.pathCacheFile)
+			this.pathCache = JSON.parse(contents)
+		}
+		catch
+		{
+			// cache doesn't exist or is invalid; continue without it
+		}
 	},
 
 	writeCache: async function()
@@ -121,7 +149,16 @@ const wikidata = module.exports = {
 
 		fs.writeFile(this.termCacheFile, JSON.stringify(this.cache), err => {
 			if (err) {
-				console.error(`Error writing wikidata cache:`)
+				console.error(`Error writing wikidata term cache:`)
+				console.error(err)
+			}
+		})
+
+		await mypath.ensureDirectoryForFile(this.pathCacheFile)
+
+		fs.writeFile(this.pathCacheFile, JSON.stringify(this.pathCache), err => {
+			if (err) {
+				console.error(`Error writing wikidata path cache:`)
 				console.error(err)
 			}
 		})
@@ -450,6 +487,172 @@ const wikidata = module.exports = {
 
 		this.cache[cacheKey] = result;
 		return result;
+	},
+
+	/**
+	 * Runs an unsorted list of path queries.
+	 */
+	runPathQueries: async function(queries)
+	{
+		const wdStandaloneIds = new Set()
+		const wdProperties = new Set()
+		const wdQualifiers = new Set()
+		for (const query of queries)
+		{
+			if (query.startsWith("Q"))
+			{
+				const relSplit = query.split(/[\+>]/) // handle relative date
+				const split = relSplit[0].split(':')
+				if (split.length == 1)
+				{
+					wdStandaloneIds.add(relSplit[0])
+				}
+				else if (split.length == 2)
+				{
+					wdProperties.add(relSplit[0])
+				}
+				else if (split.length == 4)
+				{
+					wdQualifiers.add(relSplit[0])
+				}
+				else
+				{
+					console.error(`Error: Unrecognized path date format: '${query}'`)
+				}
+			}
+			else
+			{
+				console.error(`Error: Unrecognized path date format: '${query}'`)
+			}
+		}
+
+		await this.runObjectPathQueries(wdStandaloneIds)
+		await this.runPropertyPathQueries(wdProperties)
+		await this.runQualifierPathQueries(wdQualifiers)
+	},
+
+	// runs a list of plain item path queries (e.g. "Q302") and stores the values in the path cache
+	runObjectPathQueries: async function(queries)
+	{
+		//TODO: might need smarter date interpretation, multiple value handling, etc
+		const idsToQuery = []
+		for (const wdId of queries)
+		{
+			if (!this.pathCache[wdId]) idsToQuery.push(wdId)
+		}
+		if (idsToQuery.length > 0)
+		{
+			const queryBuilder = new SparqlBuilder()
+			queryBuilder.addOutParam('?item')
+			queryBuilder.addQueryTerm(`VALUES ?item{${idsToQuery.map(id => `wd:${id}`).join(' ')}}`)
+			queryBuilder.addQueryTerm(`?item (p:P585/psv:P585)|(p:P580/psv:P580)|(p:P569/psv:P569)|(p:P571/psv:P571) ?value.`)
+			queryBuilder.addTimeBreak('?value', '?date', '?precision')
+			const query = queryBuilder.build()
+			console.log(query)
+			const data = await this.runQuery(query)
+			const foundKeys = new Set()
+			for (const binding of data.results.bindings)
+			{
+				const key = this.extractQidFromUrl(binding['item'].value)
+				this.pathCache[key] = { value: binding['date'].value, precision: binding['precision'].value }
+				foundKeys.add(key)
+			}
+
+			// mark items with no result as missing
+			for (const wdId of idsToQuery)
+			{
+				if (!foundKeys.has(wdId)) this.pathCache[wdId] = { value: null }
+			}
+		}
+	},
+
+	// runs a list of item-property path queries (e.g. "Q302:P570") and stores the values in the path cache
+	runPropertyPathQueries: async function(queries)
+	{
+		//TODO: might need smarter date interpretation, multiple value handling, etc
+		const propsToQuery = []
+		for (const wdProp of queries)
+		{
+			if (!this.pathCache[wdProp]) propsToQuery.push(wdProp)
+		}
+		if (propsToQuery.length > 0)
+		{
+			const propMap = function(str) {
+				const split = str.split(':')
+				return `(wd:${split[0]} p:${split[1]} psv:${split[1]})`
+			}
+			const queryBuilder = new SparqlBuilder()
+			queryBuilder.addOutParam('?item')
+			queryBuilder.addOutParam('?p')
+			queryBuilder.addQueryTerm(`VALUES (?item ?p ?psv){${propsToQuery.map(propMap).join('')}}`)
+			queryBuilder.addQueryTerm('?item ?p ?statement.')
+			queryBuilder.addQueryTerm('?statement ?psv ?value.')
+			queryBuilder.addTimeBreak('?value', '?date', '?precision')
+			const query = queryBuilder.build()
+			console.log(query)
+			const data = await this.runQuery(query)
+			const foundKeys = new Set()
+			for (const binding of data.results.bindings)
+			{
+				const qid = this.extractQidFromUrl(binding['item'].value)
+				const pid = this.extractQidFromUrl(binding['p'].value)
+				const key = `${qid}:${pid}`
+				this.pathCache[key] = { value: binding['date'].value, precision: binding['precision'].value }
+				foundKeys.add(key)
+			}
+
+			// mark items with no result as missing
+			for (const wdProp of propsToQuery)
+			{
+				if (!foundKeys.has(wdProp)) this.pathCache[wdProp] = { value: null }
+			}
+		}
+	},
+
+	// runs a list of item-property-qualifier path queries (e.g. "Q129165:P39:Q938153:P580") and stores the values in the path cache
+	runQualifierPathQueries: async function(queries)
+	{
+		//TODO: might need smarter date interpretation, multiple value handling, etc
+		const qualsToQuery = []
+		for (const wdProp of queries)
+		{
+			if (!this.pathCache[wdProp]) qualsToQuery.push(wdProp)
+		}
+		if (qualsToQuery.length > 0)
+		{
+			const qualMap = function(str) {
+				const split = str.split(':')
+				return `(wd:${split[0]} p:${split[1]} ps:${split[1]} wd:${split[2]} pqv:${split[3]})`
+			}
+			const queryBuilder = new SparqlBuilder()
+			queryBuilder.addOutParam('?item')
+			queryBuilder.addOutParam('?p')
+			queryBuilder.addOutParam('?value')
+			queryBuilder.addOutParam('?q')
+			queryBuilder.addQueryTerm(`VALUES (?item ?p ?psv ?value ?q){${qualsToQuery.map(qualMap).join('')}}`)
+			queryBuilder.addQueryTerm('?item ?p [ ?psv ?value; ?q ?datev ].')
+			queryBuilder.addTimeBreak('?datev', '?date', '?precision')
+			const query = queryBuilder.build()
+			console.log(query)
+			const data = await this.runQuery(query)
+			const foundKeys = new Set()
+			for (const binding of data.results.bindings)
+			{
+				const itemId = this.extractQidFromUrl(binding['item'].value)
+				const propId = this.extractQidFromUrl(binding['p'].value)
+				const valId = this.extractQidFromUrl(binding['value'].value)
+				const qualId = this.extractQidFromUrl(binding['q'].value)
+				const key = `${itemId}:${propId}:${valId}:${qualId}`
+				this.pathCache[key] = { value: binding['date'].value, precision: binding['precision'].value }
+				foundKeys.add(key)
+			}
+
+			// mark items with no result as missing
+			for (const wdProp of qualsToQuery)
+			{
+				if (!foundKeys.has(wdProp)) this.pathCache[wdProp] = { value: null }
+			}
+		}
 	},
 
 	// runs a SPARQL query that generates multiple items

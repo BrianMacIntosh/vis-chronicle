@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Generates JSON for populating a vis.js timeline from Wikidata queries.",
   "keywords": [
-	"wikidata", "visjs", "timeline"
+    "wikidata",
+    "visjs",
+    "timeline"
   ],
   "homepage": "https://github.com/BrianMacIntosh/vis-chronicle",
   "bugs": "https://github.com/BrianMacIntosh/vis-chronicle/issues",
@@ -12,23 +14,21 @@
     "url": "git+https://github.com/BrianMacIntosh/vis-chronicle.git"
   },
   "bin": {
-	"vis-chronicle": "src/fetch.js"
+    "vis-chronicle": "src/fetch.js"
   },
   "exports": {
-	"./styles/style.css": "./styles/style.css",
-	".": "./src/index.js"
+    "./styles/style.css": "./styles/style.css",
+    ".": "./src/index.js"
   },
-  "scripts": {
-  },
+  "scripts": {},
   "author": {
-	"name": "Brian MacIntosh",
-	"email": "brianamacintosh@gmail.com",
-	"url": "https://brianmacintosh.com"
+    "name": "Brian MacIntosh",
+    "email": "brianamacintosh@gmail.com",
+    "url": "https://brianmacintosh.com"
   },
   "license": "ISC",
-  "dependencies": {
-  },
   "devDependencies": {
+    "jewish-date": "2.0.23",
     "moment": "2.30.1"
   }
 }
