@@ -66,7 +66,7 @@ function wikidataToRange(inTime)
 	}
 
 	// moment has trouble with negative years unless they're six digits
-	const date = moment.utc(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
+	const date = moment(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
 
 	switch (inTime.precision)
 	{
