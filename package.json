@@ -19,7 +19,7 @@
   "exports": {
     "./styles/style.css": "./styles/style.css",
     ".": "./src/index.js",
-	"./wikidataToRange.js": "./src/wikidataToRange.js"
+    "./wikidataToRange.js": "./src/wikidataToRange.js"
   },
   "scripts": {},
   "author": {
@@ -28,7 +28,7 @@
     "url": "https://brianmacintosh.com"
   },
   "license": "ISC",
-  "devDependencies": {
+  "dependencies": {
     "jewish-date": "2.0.23",
     "moment": "2.30.1"
   }
