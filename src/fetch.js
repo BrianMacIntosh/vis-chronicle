@@ -43,6 +43,12 @@ const wikidata = require('./wikidata.js')
 const renderer = require('./render.js')
 const mypath = require("./mypath.js");
 const { flattenRelativeDate } = require('./index.js');
+const wikidataToRange2 = require('./wikidataToRange.js')
+
+function wikidataToRange(param)
+{
+	return wikidataToRange2(param, wikidata.inputSpec.chronicle.maxUncertainTimePrecision)
+}
 
 wikidata.skipCache = values["skip-wd-cache"]
 wikidata.cacheBuster = values["cachebuster"]
@@ -50,55 +56,6 @@ wikidata.sparqlUrl = values["query-url"]
 wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
 wikidata.initialize()
-
-const wikidataToMomentPrecision = [
-	undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
-	'year', 'month', 'day', 'hour', 'minute', 'second'
-]
-
-// produces a range of moments {min,max} from a Wikidata time
-function wikidataToRange(inTime)
-{
-	if (!inTime || !inTime.value)
-	{
-		// missing value
-		return undefined
-	}
-
-	// moment has trouble with negative years unless they're six digits
-	const date = moment(inTime.value, 'YYYYYY-MM-DDThh:mm:ss')
-
-	switch (inTime.precision)
-	{
-		case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
-			const yearBase = Math.pow(10, 9 - inTime.precision)
-			var roundedYear = Math.floor(date.year() / yearBase) * yearBase
-
-			// correct for lack of year 0 ("-19" is actually "-20 BC")
-			// and also for the fact that "-20 BC" is really on the positive side of e.g. -18
-			if (date.year() < 0) roundedYear += 2
-
-			return {
-				min: moment({year:roundedYear}),
-				max: moment({year:roundedYear + yearBase}).subtract(1, 'minute').endOf('year')
-			}
-		default:
-			if (inTime.precision > wikidata.inputSpec.chronicle.maxUncertainTimePrecision)
-			{
-				const momentPrecision = wikidataToMomentPrecision[inTime.precision]
-				return { min: date.clone().startOf(momentPrecision), max: date.clone().startOf(momentPrecision) }
-			}
-			else if (inTime.precision < wikidataToMomentPrecision.length)
-			{
-				const momentPrecision = wikidataToMomentPrecision[inTime.precision]
-				return { min: date.clone().startOf(momentPrecision), max: date.clone().endOf(momentPrecision) }
-			}
-			else
-			{
-				throw `Unrecognized date precision ${inTime.precision}`
-			}
-	}
-}
 
 function rangeUnionAdv(value, min, max)
 {

@@ -18,7 +18,8 @@
   },
   "exports": {
     "./styles/style.css": "./styles/style.css",
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+	"./wikidataToRange.js": "./src/wikidataToRange.js"
   },
   "scripts": {},
   "author": {
