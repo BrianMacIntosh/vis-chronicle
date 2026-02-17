@@ -41,6 +41,8 @@ const wikidata = module.exports = {
 	rankNormal: "http://wikiba.se/ontology#NormalRank",
 	rankPreferred: "http://wikiba.se/ontology#PreferredRank",
 
+	pathQueryRegex: /^(Q[0-9]+(?::P[0-9]+)?(?::Q[0-9]+:P[0-9]+)?)([\+>](?:[A-Za-z]+(?:![0-9]+)?|P\-?[0-9A-Z]+)+)*$/,
+
 	initialize: function()
 	{
 		const chroniclePackage = require("../package.json")
@@ -499,21 +501,22 @@ const wikidata = module.exports = {
 		const wdQualifiers = new Set()
 		for (const query of queries)
 		{
-			if (query.startsWith("Q"))
+			const match = query.match(/^(Q[0-9]+(?::P[0-9]+)?(?::Q[0-9]+:P[0-9]+)?)([\+>](?:[A-Za-z]+(?:![0-9]+)?|P\-?[0-9A-Z]+)+)*$/)
+			if (match && match[1])
 			{
-				const relSplit = query.split(/[\+>]/) // handle relative date
-				const split = relSplit[0].split(':')
+				const root = match[1]
+				const split = root.split(':')
 				if (split.length == 1)
 				{
-					wdStandaloneIds.add(relSplit[0])
+					wdStandaloneIds.add(root)
 				}
 				else if (split.length == 2)
 				{
-					wdProperties.add(relSplit[0])
+					wdProperties.add(root)
 				}
 				else if (split.length == 4)
 				{
-					wdQualifiers.add(relSplit[0])
+					wdQualifiers.add(root)
 				}
 				else
 				{

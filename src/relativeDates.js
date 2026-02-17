@@ -1,6 +1,7 @@
 
 const moment = require('moment')
 const { toJewishDate, toGregorianDate, getIndexByJewishMonth } = require("jewish-date");
+const wikidata = require('./wikidata');
 
 function momentToHDate(inMoment)
 {
@@ -26,23 +27,19 @@ function durationToWikidataPrecision(duration)
 // Flattens a relative date string into a hard date string
 module.exports = function flattenRelativeDate(wikidataCache, dateString)
 {
+	if (dateString == '') return null
+
 	// parse out relative date components
-	const relSplit = []
-	const relExp = /[\+>][A-Za-z0-9\-]+/g
-	var lastSep = 0
-	while (true)
+	var relSplit
+	var match = dateString.match(wikidata.pathQueryRegex)
+	if (match)
 	{
-		var match = relExp.exec(dateString)
-		if (match)
-		{
-			relSplit.push(dateString.substring(lastSep, match.index))
-		}
-		else
-		{
-			relSplit.push(dateString.substring(lastSep))
-			break
-		}
-		lastSep = match.index
+		relSplit = match.slice(1)
+	}
+	else
+	{
+		console.error(`Failed to parse relative date '${dateString}'.`)
+		return null
 	}
 
 	if (!relSplit[0])
@@ -70,7 +67,12 @@ module.exports = function flattenRelativeDate(wikidataCache, dateString)
 			for (var i = 1; i < relSplit.length; i++)
 			{
 				const component = relSplit[i]
-				if (component[0] == "+")
+				if (!component)
+				{
+					// empty group from regex
+					continue
+				}
+				else if (component[0] == "+")
 				{
 					const momentDelta = moment.duration(component.substring(1))
 					momentDate = momentDate.add(momentDelta)
