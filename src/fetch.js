@@ -131,7 +131,7 @@ entryPoint()
 	{
 		if (item.id)
 		{
-			if (itemIds.has(item.id))
+			if (!itemIds.has(item.id))
 			{
 				itemIds.add(item.id)
 			}
