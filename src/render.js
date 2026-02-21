@@ -35,6 +35,18 @@ function momentSafeMax(a, b)
 	return a ? (b ? moment.max(a, b) : a) : b
 }
 
+// Copies properties that should be untouched by the renderer from 'from' to 'to'
+function copyItemUntouchedProps(from, to)
+{
+	to.align = from.align
+	to.selectable = from.selectable
+	to.style = from.style
+	to.title = from.title
+	to.limitSize = from.limitSize
+	to.editable = from.editable
+	to.wikidata = from.entity
+}
+
 const renderer = {}
 
 renderer.getExpectation = function(item)
@@ -197,9 +209,9 @@ renderer.produceOutput = function(inputSpec, items)
 			content: item.label,
 			className: item.className,
 			comment: item.comment,
-			type: item.type,
-			wikidata: item.entity
+			type: item.type
 		}
+		copyItemUntouchedProps(item, outputItem)
 		if (item.group)
 		{
 			outputItem.group = item.group
@@ -287,9 +299,9 @@ renderer.produceOutput = function(inputSpec, items)
 					start: uncertainMin,
 					end: item.end_max,
 					group: item.group,
-					subgroup: outputItem.subgroup,
-					wikidata: item.entity
+					subgroup: outputItem.subgroup
 				}
+				copyItemUntouchedProps(item, uncertainElement)
 				outputObject.items.push(uncertainElement)
 
 				if (permitBgOverlay)
@@ -344,9 +356,9 @@ renderer.produceOutput = function(inputSpec, items)
 				start: outputItem.end,
 				end: tailEnd,
 				group: item.group,
-				subgroup: outputItem.subgroup,
-				wikidata: item.entity
+				subgroup: outputItem.subgroup
 			})
+			copyItemUntouchedProps(item, outputObject)
 
 			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
 		}
@@ -367,9 +379,9 @@ renderer.produceOutput = function(inputSpec, items)
 					start: outputItem.end,
 					end: tailEnd,
 					group: item.group,
-					subgroup: outputItem.subgroup,
-					wikidata: item.entity
+					subgroup: outputItem.subgroup
 				})
+				copyItemUntouchedProps(item, outputObject)
 
 				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
 			}
@@ -410,9 +422,9 @@ renderer.produceOutput = function(inputSpec, items)
 					start: item.start_min,
 					end: uncertainMax,
 					group: item.group,
-					subgroup: outputItem.subgroup,
-					wikidata: item.entity
+					subgroup: outputItem.subgroup
 				}
+				copyItemUntouchedProps(item, uncertainElement)
 				outputObject.items.push(uncertainElement)
 
 				if (permitBgOverlay)
