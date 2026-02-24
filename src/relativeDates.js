@@ -54,7 +54,7 @@ module.exports = function flattenRelativeDate(wikidataCache, dateString)
 	else
 	{
 		const cacheEntry = wikidataCache[relSplit[0]]
-		if (relSplit.length > 1)
+		if (cacheEntry.value && relSplit.length > 1)
 		{
 			// break up operators
 			const dateOperators = []
@@ -136,7 +136,7 @@ module.exports = function flattenRelativeDate(wikidataCache, dateString)
 					}
 					else
 					{
-						console.error(`Cannot advance/'>' to '${componentVal}'.`)
+						console.error(`Cannot advance/'>' to '${component.substring(1)}'.`)
 					}
 				}
 				else

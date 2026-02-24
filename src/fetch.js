@@ -368,8 +368,11 @@ entryPoint()
 			if (startTime)
 			{
 				const range = wikidataToRange(startTime)
-				item.start_min = range.min
-				item.start_max = range.max
+				if (range)
+				{
+					item.start_min = range.min
+					item.start_max = range.max
+				}
 			}
 			else
 				console.error(`Date for '${item.startPath}' wasn't cached.`)
@@ -380,8 +383,11 @@ entryPoint()
 			if (endTime)
 			{
 				const range = wikidataToRange(endTime)
-				item.end_min = range.min
-				item.end_max = range.max
+				if (range)
+				{
+					item.end_min = range.min
+					item.end_max = range.max
+				}
 			}
 			else
 				console.error(`Date for '${item.endPath}' wasn't cached.`)
