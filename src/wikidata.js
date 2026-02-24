@@ -41,7 +41,7 @@ const wikidata = module.exports = {
 	rankNormal: "http://wikiba.se/ontology#NormalRank",
 	rankPreferred: "http://wikiba.se/ontology#PreferredRank",
 
-	pathQueryRegex: /^(Q[0-9]+(?::P[0-9]+)?(?::Q[0-9]+:P[0-9]+)?)([\+>](?:[A-Za-z]+(?:![0-9]+)?|P\-?[0-9A-Z]+)+)*$/,
+	pathQueryRegex: /^(Q[0-9]+(?::P[0-9]+)?(?::Q[0-9]+:P[0-9]+)?)((?:[\+>](?:[A-Za-z]+(?:![0-9]+)?|P\-?[0-9A-Z]+)+)*)$/,
 
 	initialize: function()
 	{

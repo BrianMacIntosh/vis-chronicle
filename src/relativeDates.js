@@ -56,6 +56,23 @@ module.exports = function flattenRelativeDate(wikidataCache, dateString)
 		const cacheEntry = wikidataCache[relSplit[0]]
 		if (relSplit.length > 1)
 		{
+			// break up operators
+			const dateOperators = []
+			var opStartIndex = 0
+			const operatorString = relSplit[1]
+			if (operatorString.length > 0)
+			{
+				for (var i = 1; i < operatorString.length; i++)
+				{
+					if (operatorString[i] == '+' || operatorString[i] == '>')
+					{
+						dateOperators.push(operatorString.substring(opStartIndex, i))
+						opStartIndex = i
+					}
+				}
+				dateOperators.push(operatorString.substring(opStartIndex, i))
+			}
+
 			// handle relative segments of date
 			// About precision:
 			// - The actual value is assumed to lie in a range the size of the precision
@@ -64,9 +81,8 @@ module.exports = function flattenRelativeDate(wikidataCache, dateString)
 			var momentDate = moment(cacheEntry.value, 'YYYYYY-MM-DDThh:mm:ss')
 			var precision = cacheEntry.precision
 			//console.log(momentDate)
-			for (var i = 1; i < relSplit.length; i++)
+			for (const component of dateOperators)
 			{
-				const component = relSplit[i]
 				if (!component)
 				{
 					// empty group from regex
