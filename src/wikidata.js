@@ -12,9 +12,9 @@ const wikidata = module.exports = {
 	verboseLogging: false,
 
 	/**
-	 * 
+	 * Caches results for SPARQL queries, using the query string as the key.
 	 */
-	cache: {},
+	queryCache: {},
 
 	/**
 	 * Caches results for path queries, using the path as the key.
@@ -25,9 +25,9 @@ const wikidata = module.exports = {
 	cacheBuster: undefined,
 
 	/**
-	 * Relative path to the term cache file.
+	 * Relative path to the query cache file.
 	 */
-	termCacheFile: "intermediate/wikidata-term-cache.json",
+	queryCacheFile: "intermediate/sparql-query-cache.json",
 
 	/**
 	 * Relative path to the path cache file.
@@ -126,8 +126,8 @@ const wikidata = module.exports = {
 	{
 		try
 		{
-			const contents = await fs.promises.readFile(this.termCacheFile)
-			this.cache = JSON.parse(contents)
+			const contents = await fs.promises.readFile(this.queryCacheFile)
+			this.queryCache = JSON.parse(contents)
 		}
 		catch
 		{
@@ -147,11 +147,11 @@ const wikidata = module.exports = {
 
 	writeCache: async function()
 	{
-		await mypath.ensureDirectoryForFile(this.termCacheFile)
+		await mypath.ensureDirectoryForFile(this.queryCacheFile)
 
-		fs.writeFile(this.termCacheFile, JSON.stringify(this.cache), err => {
+		fs.writeFile(this.queryCacheFile, JSON.stringify(this.queryCache), err => {
 			if (err) {
-				console.error(`Error writing wikidata term cache:`)
+				console.error(`Error writing wikidata query cache:`)
 				console.error(err)
 			}
 		})
@@ -393,15 +393,7 @@ const wikidata = module.exports = {
 		queryBuilder.addOptionalQueryTerm(`${propVar} wikibase:rank ${rankVar}.`)
 
 		const query = queryBuilder.build()
-
-		// read cache
-		const cacheKey = query
-		if (!this.skipCache && !item.skipCache && this.cache[cacheKey])
-		{
-			return this.cache[cacheKey]
-		}
-		
-		const data = await this.runQuery(query)
+		const data = await this.runQuery(query, item.skipCache)
 		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
 
 		const readBinding = function(binding)
@@ -487,7 +479,6 @@ const wikidata = module.exports = {
 			}
 		}
 
-		this.cache[cacheKey] = result;
 		return result;
 	},
 
@@ -695,7 +686,7 @@ const wikidata = module.exports = {
 		queryBuilder.addWikibaseLabel(this.lang)
 		
 		const query = queryBuilder.build()
-		const data = await this.runQuery(query)
+		const data = await this.runQuery(query, templateItem.skipCache)
 		if (!data)
 		{
 			throw 'No response data from Wikidata query.'
@@ -727,8 +718,13 @@ const wikidata = module.exports = {
 	},
 
 	// runs a SPARQL query
-	runQuery: async function(query)
+	runQuery: async function(query, skipCache = false)
 	{
+		if (!skipCache && !this.skipCache && this.queryCache[query])
+		{
+			return this.queryCache[query]
+		}
+
 		if (this.verboseLogging) console.log(query)
 
 		assert(this.options)
@@ -743,6 +739,7 @@ const wikidata = module.exports = {
 		else
 		{
 			const data = await response.json()
+			this.queryCache[query] = data
 			return data
 		}
 	}
