@@ -696,6 +696,10 @@ const wikidata = module.exports = {
 		
 		const query = queryBuilder.build()
 		const data = await this.runQuery(query)
+		if (!data)
+		{
+			throw 'No response data from Wikidata query.'
+		}
 
 		const newItems = []
 
