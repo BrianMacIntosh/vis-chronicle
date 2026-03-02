@@ -461,7 +461,12 @@ renderer.produceOutput = function(inputSpec, items)
 		{
 			const labelItem = {...outputItem}
 			labelItem.id += "-label"
-			labelItem.className = [labelItem.className, "visc-toplabel"].join(' '),
+
+			var classes = labelItem.className.split(' ')
+			classes = classes.filter(c => c != "visc-left-connection" && c != "visc-right-connection")
+			classes.push("visc-toplabel")
+			labelItem.className = classes.join(' ')
+
 			outputObject.items.push(labelItem)
 			outputItem.content = outputItem.content ? "&nbsp;" : ""
 		}
