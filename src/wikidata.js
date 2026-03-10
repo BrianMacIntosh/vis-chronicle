@@ -184,24 +184,31 @@ const wikidata = module.exports = {
 		}
 	},
 
-	postprocessQueryTerm: function(context, term, item)
+	replaceQueryWildcards: function(term, item, itemPrefix = "")
 	{
-		if (!term)
-		{
-			return term;
-		}
-
 		// replace query wildcards
 		for (const key in item)
 		{
 			var insertValue = item[key]
 			if (typeof insertValue === "string" && insertValue.startsWith("Q"))
-				insertValue = "wd:" + insertValue
+				insertValue = itemPrefix + insertValue
 			term = term.replaceAll(`{${key}}`, insertValue)
 		}
 
 		// detect unreplaced wildcards
 		//TODO:
+
+		return term
+	},
+
+	preprocessQueryTerm: function(context, term, item)
+	{
+		if (!term)
+		{
+			return term
+		}
+
+		term = this.replaceQueryWildcards(term, item, "wd:")
 
 		// terminate term
 		if (!term.trim().endsWith("."))
@@ -238,7 +245,7 @@ const wikidata = module.exports = {
 
 		//TODO: validate query has required wildcards
 		
-		queryTerm = this.postprocessQueryTerm(inQueryTerm, queryTerm, item)
+		queryTerm = this.preprocessQueryTerm(inQueryTerm, queryTerm, item)
 		return queryTerm
 	},
 
@@ -275,7 +282,7 @@ const wikidata = module.exports = {
 		if (typeof queryTerm === 'string' || queryTerm instanceof String)
 		{
 			return {
-				value: this.postprocessQueryTerm(inQueryTerm, queryTerm, item),
+				value: this.preprocessQueryTerm(inQueryTerm, queryTerm, item),
 				min: "?_prop pqv:P1319 ?_min_value.",
 				max: "?_prop pqv:P1326 ?_max_value."
 			}
@@ -285,7 +292,7 @@ const wikidata = module.exports = {
 			const result = {}
 			for (const key in queryTerm)
 			{
-				result[key] = this.postprocessQueryTerm(inQueryTerm, queryTerm[key], item)
+				result[key] = this.preprocessQueryTerm(inQueryTerm, queryTerm[key], item)
 			}
 			return result
 		}

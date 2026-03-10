@@ -24,54 +24,61 @@ function durationToWikidataPrecision(duration)
 	else return 9
 }
 
-// Flattens a relative date string into a hard date string
-module.exports = function flattenRelativeDate(wikidataCache, dateString)
+/**
+ * Breaks down a relative date path into its components.
+ * @param {*} dateString 
+ * @returns An array of strings, or null.
+ */
+function breakRelativeDate(dateString)
 {
 	if (dateString == '') return null
 
 	// parse out relative date components
-	var relSplit
 	var match = dateString.match(wikidata.pathQueryRegex)
-	if (match)
-	{
-		relSplit = match.slice(1)
-	}
-	else
+	if (!match)
 	{
 		console.error(`Failed to parse relative date '${dateString}'.`)
 		return null
 	}
 
-	if (!relSplit[0])
+	const dateComponents = [ match[1] ]
+	var opStartIndex = 0
+	const operatorString = match[2]
+	if (operatorString.length > 0)
+	{
+		for (var i = 1; i < operatorString.length; i++)
+		{
+			if (operatorString[i] == '+' || operatorString[i] == '>')
+			{
+				dateComponents.push(operatorString.substring(opStartIndex, i))
+				opStartIndex = i
+			}
+		}
+		dateComponents.push(operatorString.substring(opStartIndex, i))
+	}
+	return dateComponents
+}
+
+// Flattens a relative date string into a hard date string
+function flattenRelativeDate(wikidataCache, dateString)
+{
+	var parsedPath = breakRelativeDate(dateString)
+	if (!parsedPath)
 	{
 		return null
 	}
-	else if (!wikidataCache[relSplit[0]])
+	else if (!wikidataCache[parsedPath[0]])
 	{
-		console.error(`Date for '${relSplit[0]}' wasn't cached.`)
+		console.error(`Date for '${parsedPath[0]}' wasn't cached.`)
 		return null
 	}
 	else
 	{
-		const cacheEntry = wikidataCache[relSplit[0]]
-		if (cacheEntry.value && relSplit.length > 1)
+		const cacheEntry = wikidataCache[parsedPath[0]]
+		if (cacheEntry.value && parsedPath.length > 1)
 		{
 			// break up operators
-			const dateOperators = []
-			var opStartIndex = 0
-			const operatorString = relSplit[1]
-			if (operatorString.length > 0)
-			{
-				for (var i = 1; i < operatorString.length; i++)
-				{
-					if (operatorString[i] == '+' || operatorString[i] == '>')
-					{
-						dateOperators.push(operatorString.substring(opStartIndex, i))
-						opStartIndex = i
-					}
-				}
-				dateOperators.push(operatorString.substring(opStartIndex, i))
-			}
+			const dateOperators = parsedPath.slice(1)
 
 			// handle relative segments of date
 			// About precision:
@@ -157,3 +164,5 @@ module.exports = function flattenRelativeDate(wikidataCache, dateString)
 		}
 	}
 }
+
+module.exports = { breakRelativeDate, flattenRelativeDate }
