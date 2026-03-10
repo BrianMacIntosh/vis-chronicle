@@ -200,8 +200,16 @@ entryPoint()
 	{
 		if (item.finished) continue
 
-		if (item.startPath) pathQueries.push(item.startPath)
-		if (item.endPath) pathQueries.push(item.endPath)
+		if (item.startPath)
+		{
+			item.startPath = wikidata.replaceQueryWildcards(item.startPath, item)
+			pathQueries.push(item.startPath)
+		}
+		if (item.endPath)
+		{
+			item.endPath = wikidata.replaceQueryWildcards(item.endPath, item)
+			pathQueries.push(item.endPath)
+		}
 
 		// the bundle key is the queries, as well as any wildcard parameters
 		const keyObject = {}
