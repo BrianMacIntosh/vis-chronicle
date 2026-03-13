@@ -1,6 +1,6 @@
 {
   "name": "vis-chronicle",
-  "version": "1.2.5",
+  "version": "1.3.5",
   "description": "Generates JSON for populating a vis.js timeline from Wikidata queries.",
   "keywords": [
     "wikidata",
