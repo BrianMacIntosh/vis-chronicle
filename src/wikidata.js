@@ -2,6 +2,7 @@
 const mypath = require("./mypath.js")
 const fs = require('fs');
 const nodepath = require('node:path');
+const moment = require('moment')
 const globalData = require("./global-data.json")
 const assert = require('node:assert/strict')
 const SparqlBuilder = require("./sparql-builder.js")
@@ -490,6 +491,15 @@ const wikidata = module.exports = {
 	},
 
 	/**
+	 * Formats the provided Wikidata date string as ISO 8601 with a six-digit year.
+	 */
+	normalizeWikidataDate: function(dateStr)
+	{
+		const date = moment(dateStr, 'YYYY-MM-DDThh:mm:ss')
+		return date.format('YYYYYY-MM-DDThh:mm:ss')
+	},
+
+	/**
 	 * Runs an unsorted list of path queries.
 	 */
 	runPathQueries: async function(queries)
@@ -555,7 +565,7 @@ const wikidata = module.exports = {
 			for (const binding of data.results.bindings)
 			{
 				const key = this.extractQidFromUrl(binding['item'].value)
-				this.pathCache[key] = { value: binding['date'].value, precision: binding['precision'].value }
+				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
 				foundKeys.add(key)
 			}
 
@@ -598,7 +608,7 @@ const wikidata = module.exports = {
 				const qid = this.extractQidFromUrl(binding['item'].value)
 				const pid = this.extractQidFromUrl(binding['p'].value)
 				const key = `${qid}:${pid}`
-				this.pathCache[key] = { value: binding['date'].value, precision: binding['precision'].value }
+				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
 				foundKeys.add(key)
 			}
 
@@ -644,7 +654,7 @@ const wikidata = module.exports = {
 				const valId = this.extractQidFromUrl(binding['value'].value)
 				const qualId = this.extractQidFromUrl(binding['q'].value)
 				const key = `${itemId}:${propId}:${valId}:${qualId}`
-				this.pathCache[key] = { value: binding['date'].value, precision: binding['precision'].value }
+				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
 				foundKeys.add(key)
 			}
 
