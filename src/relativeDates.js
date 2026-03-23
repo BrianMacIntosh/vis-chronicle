@@ -2,6 +2,8 @@
 const moment = require('moment')
 const { toJewishDate, toGregorianDate, getIndexByJewishMonth } = require("jewish-date");
 const wikidata = require('./wikidata');
+const wikidataToRange = require('./wikidataToRange');
+const assert = require("node:assert/strict")
 
 function momentToHDate(inMoment)
 {
@@ -25,13 +27,61 @@ function durationToWikidataPrecision(duration)
 }
 
 /**
+ * Combines three {min, max} objects into a range containing all of them.
+ * @param {*} value Is overridden by min.min and max.max if they are present.
+ * @param {*} min 
+ * @param {*} max 
+ * @returns 
+ */
+function rangeUnionAdv(value, min, max)
+{
+	var aggregate = {}
+	if (min)
+	{
+		assert(min.min)
+		aggregate.min = min.min
+	}
+	else if (value && value.min)
+	{
+		aggregate.min = value.min
+	}
+	if (max)
+	{
+		assert(max.max)
+		aggregate.max = max.max
+	}
+	else if (value && value.max)
+	{
+		aggregate.max = value.max
+	}
+	return aggregate
+}
+
+/**
+ * Combines two {min, max} objects into a range containing both of them.
+ * @param {*} a 
+ * @param {*} b 
+ * @returns 
+ */
+function rangeUnion(a, b)
+{
+	if (!a) return b
+	if (!b) return a
+	return {
+		min: a.min && b.min ? moment.min(a.min, b.min) : a.min || b.min,
+		max: a.max && b.max ? moment.max(a.max, b.max) : a.max || b.max
+	}
+}
+
+
+/**
  * Breaks down a relative date path into its components.
  * @param {*} dateString 
  * @returns An array of strings, or null.
  */
 function breakRelativeDate(dateString)
 {
-	if (dateString == '') return null
+	if (!dateString) return null
 
 	// parse out relative date components
 	var match = dateString.match(wikidata.pathQueryRegex)
@@ -59,8 +109,81 @@ function breakRelativeDate(dateString)
 	return dateComponents
 }
 
-// Flattens a relative date string into a hard date string
-function flattenRelativeDate(wikidataCache, dateString)
+/**
+ * Flattens a relative date path string into a hard date.
+ * @param {*} wikidataCache 
+ * @param {*} dateString 
+ * @param {*} params { returnRange:BOOL }. Result will be a range { min:STRING, max:STRING } instead.
+ * @returns An object like { value:STRING, precision:INT }, or null
+ */
+function flattenRelativeDate(wikidataCache, dateString, params)
+{
+	var flatMoment = flattenRelativeDateToMoment(wikidataCache, dateString)
+
+	// if allowed and necessary, produce a range instead of a single value
+	if (params?.returnRange)
+	{
+		var parsedPath = breakRelativeDate(dateString)
+		if (!parsedPath) return { value: null }
+
+		const basePath = parsedPath[0]
+		const wdpk = basePath.substring(0, basePath.lastIndexOf(':'))
+		const qual = basePath.substring(basePath.lastIndexOf(':') + 1)
+		var minQuery
+		var maxQuery
+		switch (qual)
+		{
+			case "P580":
+			{
+				minQuery = `${wdpk}:P1319` // earliest date
+				maxQuery = `${wdpk}:P8555` // latest start date
+				break
+			}
+			case "P582":
+			{
+				minQuery = `${wdpk}:P8554` // earliest end date
+				maxQuery = `${wdpk}:P1326` // latest date
+				break
+			}
+		}
+		if (minQuery && maxQuery)
+		{
+			const minMoment = flattenRelativeDateToMoment(wikidataCache, minQuery + parsedPath.slice(1).join(''))
+			const maxMoment = flattenRelativeDateToMoment(wikidataCache, maxQuery + parsedPath.slice(1).join(''))
+			const value = wikidataToRange(flatMoment)
+			const minRange = wikidataToRange(minMoment)
+			const maxRange = wikidataToRange(maxMoment)
+			const aggregateRange = rangeUnionAdv(value, minRange, maxRange)
+			return {
+				min: aggregateRange.min ? aggregateRange.min.format('YYYYYY-MM-DDThh:mm:ss') : null,
+				max: aggregateRange.max ? aggregateRange.max.format('YYYYYY-MM-DDThh:mm:ss') : null
+			}
+		}
+		else
+		{
+			const flatRange = wikidataToRange(flatMoment)
+			return flatRange
+				? { min: flatRange.min.format('YYYYYY-MM-DDThh:mm:ss'), max: flatRange.max.format('YYYYYY-MM-DDThh:mm:ss') }
+				: { value: null }
+		}
+	}
+	else
+	{
+		if (flatMoment && flatMoment.value)
+		{
+			flatMoment.value = flatMoment.value.format('YYYYYY-MM-DDThh:mm:ss')
+		}
+		return flatMoment
+	}
+}
+
+/**
+ * Flattens a relative date path string into a moment.
+ * @param {*} wikidataCache 
+ * @param {*} dateString 
+ * @returns An object like { value:MOMENT, precision:INT }, or null
+ */
+function flattenRelativeDateToMoment(wikidataCache, dateString)
 {
 	var parsedPath = breakRelativeDate(dateString)
 	if (!parsedPath)
@@ -153,16 +276,15 @@ function flattenRelativeDate(wikidataCache, dateString)
 
 				//console.log(`${component} (${precision}): ${momentDate}`)
 			}
-			return {
-				value: momentDate.format('YYYYYY-MM-DDThh:mm:ss'),
-				precision: precision
-			}
+			return { value: momentDate, precision: precision }
 		}
 		else
 		{
-			return {...cacheEntry}
+			const cachedOut = {...cacheEntry}
+			if (cachedOut.value) cachedOut.value = moment(cachedOut.value)
+			return cachedOut
 		}
 	}
 }
 
-module.exports = { breakRelativeDate, flattenRelativeDate }
+module.exports = { breakRelativeDate, flattenRelativeDate, rangeUnion, rangeUnionAdv }

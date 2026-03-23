@@ -628,6 +628,25 @@ const wikidata = module.exports = {
 		for (const wdProp of queries)
 		{
 			if (!this.pathCache[wdProp]) qualsToQuery.push(wdProp)
+
+			// grab corresponding min/max props as well
+			const split = wdProp.split(':')
+			const wdpk = split.slice(0, 3).join(':')
+			switch (split[3])
+			{
+				case "P580":
+					query = `${wdpk}:P1319` // earliest date
+					if (!this.pathCache[query]) qualsToQuery.push(query)
+					query = `${wdpk}:P8555` // latest start date
+					if (!this.pathCache[query]) qualsToQuery.push(query)
+					break;
+				case "P582":
+					query = `${wdpk}:P8554` // earliest end date
+					if (!this.pathCache[query]) qualsToQuery.push(query)
+					query = `${wdpk}:P1326` // latest date
+					if (!this.pathCache[query]) qualsToQuery.push(query)
+					break;
+			}
 		}
 		if (qualsToQuery.length > 0)
 		{

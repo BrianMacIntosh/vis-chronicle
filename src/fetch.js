@@ -37,12 +37,11 @@ if (!outputFile)
 
 var metadataOutputFile = values["out-metadata"]
 
-const moment = require('moment')
 const fs = require('fs');
 const wikidata = require('./wikidata.js')
 const renderer = require('./render.js')
 const mypath = require("./mypath.js");
-const { flattenRelativeDate } = require('./index.js');
+const { flattenRelativeDate, rangeUnion, rangeUnionAdv } = require('./relativeDates.js');
 const wikidataToRange2 = require('./wikidataToRange.js')
 
 function wikidataToRange(param)
@@ -56,40 +55,6 @@ wikidata.sparqlUrl = values["query-url"]
 wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
 wikidata.initialize()
-
-function rangeUnionAdv(value, min, max)
-{
-	var aggregate = {}
-	if (min)
-	{
-		assert(min.min)
-		aggregate.min = min.min
-	}
-	else if (value && value.min)
-	{
-		aggregate.min = value.min
-	}
-	if (max)
-	{
-		assert(max.max)
-		aggregate.max = max.max
-	}
-	else if (value && value.max)
-	{
-		aggregate.max = value.max
-	}
-	return aggregate
-}
-
-function rangeUnion(a, b)
-{
-	if (!a) return b
-	if (!b) return a
-	return {
-		min: a.min && b.min ? moment.min(a.min, b.min) : a.min || b.min,
-		max: a.max && b.max ? moment.max(a.max, b.max) : a.max || b.max
-	}
-}
 
 async function entryPoint() {}
 
