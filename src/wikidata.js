@@ -495,7 +495,7 @@ const wikidata = module.exports = {
 	 */
 	normalizeWikidataDate: function(dateStr)
 	{
-		const date = moment(dateStr, 'YYYY-MM-DDThh:mm:ss')
+		const date = moment(dateStr, 'Y-MM-DDThh:mm:ss')
 		return date.format('YYYYYY-MM-DDThh:mm:ss')
 	},
 
