@@ -131,6 +131,7 @@ function flattenRelativeDate(wikidataCache, dateString, params)
 		const qual = basePath.substring(basePath.lastIndexOf(':') + 1)
 		var minQuery
 		var maxQuery
+		var maxQuery2
 		switch (qual)
 		{
 			case "P580":
@@ -143,6 +144,7 @@ function flattenRelativeDate(wikidataCache, dateString, params)
 			{
 				minQuery = `${wdpk}:P8554` // earliest end date
 				maxQuery = `${wdpk}:P1326` // latest date
+				maxQuery2 = `${wdpk}:P12506` // latest end date
 				break
 			}
 		}
@@ -152,7 +154,15 @@ function flattenRelativeDate(wikidataCache, dateString, params)
 			const maxMoment = flattenRelativeDateToMoment(wikidataCache, maxQuery + parsedPath.slice(1).join(''))
 			const value = wikidataToRange(flatMoment)
 			const minRange = wikidataToRange(minMoment)
-			const maxRange = wikidataToRange(maxMoment)
+			var maxRange = wikidataToRange(maxMoment)
+
+			if (maxQuery2)
+			{
+				const maxMoment2 = flattenRelativeDateToMoment(wikidataCache, maxQuery2 + parsedPath.slice(1).join(''))
+				const maxRange2 = wikidataToRange(maxMoment2)
+				maxRange = rangeUnion(maxRange, maxRange2)
+			}
+
 			const aggregateRange = rangeUnionAdv(value, minRange, maxRange)
 			return {
 				min: aggregateRange.min ? aggregateRange.min.format('YYYYYY-MM-DDThh:mm:ss') : null,

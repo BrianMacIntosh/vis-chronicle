@@ -645,6 +645,8 @@ const wikidata = module.exports = {
 					if (!this.pathCache[query]) qualsToQuery.push(query)
 					query = `${wdpk}:P1326` // latest date
 					if (!this.pathCache[query]) qualsToQuery.push(query)
+					query = `${wdpk}:P12506` // latest end date
+					if (!this.pathCache[query]) qualsToQuery.push(query)
 					break;
 			}
 		}
