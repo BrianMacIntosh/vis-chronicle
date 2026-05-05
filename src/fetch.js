@@ -5,6 +5,7 @@
 const path = require('path')
 const nodeutil = require('node:util')
 const assert = require('node:assert/strict');
+const moment = require('moment')
 
 // parse args
 const { values, positionals } = nodeutil.parseArgs({
@@ -336,30 +337,22 @@ entryPoint()
 	{
 		if (item.startPath)
 		{
-			const startTime = flattenRelativeDate(wikidata.pathCache, item.startPath)
-			if (startTime)
+			const startTimeRange = flattenRelativeDate(wikidata.pathCache, item.startPath, { returnRange: true })
+			if (startTimeRange)
 			{
-				const range = wikidataToRange(startTime)
-				if (range)
-				{
-					item.start_min = range.min
-					item.start_max = range.max
-				}
+				item.start_min = moment(startTimeRange.min)
+				item.start_max = moment(startTimeRange.max)
 			}
 			else
 				console.error(`Date for '${item.startPath}' wasn't cached.`)
 		}
 		if (item.endPath)
 		{
-			const endTime = flattenRelativeDate(wikidata.pathCache, item.endPath)
-			if (endTime)
+			const endTimeRange = flattenRelativeDate(wikidata.pathCache, item.endPath, { returnRange: true })
+			if (endTimeRange)
 			{
-				const range = wikidataToRange(endTime)
-				if (range)
-				{
-					item.end_min = range.min
-					item.end_max = range.max
-				}
+				item.end_min = moment(endTimeRange.min)
+				item.end_max = moment(endTimeRange.max)
 			}
 			else
 				console.error(`Date for '${item.endPath}' wasn't cached.`)
