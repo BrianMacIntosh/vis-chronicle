@@ -127,26 +127,29 @@ function flattenRelativeDate(wikidataCache, dateString, params)
 		if (!parsedPath) return { value: null }
 
 		const basePath = parsedPath[0]
-		const wdpk = basePath.substring(0, basePath.lastIndexOf(':'))
+		const termCount = basePath.split(':').length
+		const hasQualifier = termCount > 2
+		const basePathNoQual = hasQualifier ? basePath.substring(0, basePath.lastIndexOf(':')) : basePath
 		const qual = basePath.substring(basePath.lastIndexOf(':') + 1)
 		var minQuery
 		var maxQuery
 		var maxQuery2
-		switch (qual)
+		if (qual == "P580")
 		{
-			case "P580":
-			{
-				minQuery = `${wdpk}:P1319` // earliest date
-				maxQuery = `${wdpk}:P8555` // latest start date
-				break
-			}
-			case "P582":
-			{
-				minQuery = `${wdpk}:P8554` // earliest end date
-				maxQuery = `${wdpk}:P1326` // latest date
-				maxQuery2 = `${wdpk}:P12506` // latest end date
-				break
-			}
+			minQuery = `${basePathNoQual}:P1319` // earliest date
+			maxQuery = `${basePathNoQual}:P8555` // latest start date
+		}
+		else if (qual == "P582")
+		{
+			minQuery = `${basePathNoQual}:P8554` // earliest end date
+			maxQuery = `${basePathNoQual}:P1326` // latest date
+			maxQuery2 = `${basePathNoQual}:P12506` // latest end date
+		}
+		else if (termCount == 2)
+		{
+			// add earliest/latest qualifiers to unqualified property
+			minQuery = `${basePathNoQual}:P1319` // earliest date
+			maxQuery = `${basePathNoQual}:P1326` // latest date
 		}
 		if (minQuery && maxQuery)
 		{

@@ -42,7 +42,7 @@ const wikidata = module.exports = {
 	rankNormal: "http://wikiba.se/ontology#NormalRank",
 	rankPreferred: "http://wikiba.se/ontology#PreferredRank",
 
-	pathQueryRegex: /^(Q[0-9]+(?::P[0-9]+)?(?::Q[0-9]+:P[0-9]+)?)((?:[\+>](?:[A-Za-z]+(?:![0-9]+)?|P\-?[0-9A-Z]+)+)*)$/,
+	pathQueryRegex: /^(Q[0-9]+(?::P[0-9]+)?(?::Q[0-9]+)?(?::P[0-9]+)?)((?:[\+>](?:[A-Za-z]+(?:![0-9]+)?|P\-?[0-9A-Z]+)+)*)$/,
 
 	initialize: function()
 	{
@@ -585,6 +585,12 @@ const wikidata = module.exports = {
 		for (const wdProp of queries)
 		{
 			if (!this.pathCache[wdProp]) propsToQuery.push(wdProp)
+			
+			// grab corresponding min/max props as well
+			query = `${wdProp}:P1319` // earliest date
+			if (!this.pathCache[query]) propsToQuery.push(query)
+			query = `${wdProp}:P1326` // latest date
+			if (!this.pathCache[query]) propsToQuery.push(query)
 		}
 		if (propsToQuery.length > 0)
 		{
