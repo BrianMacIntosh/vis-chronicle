@@ -337,7 +337,7 @@ entryPoint()
 	{
 		if (item.startPath)
 		{
-			const startTimeRange = flattenRelativeDate(wikidata.pathCache, item.startPath, { returnRange: true })
+			const startTimeRange = flattenRelativeDate(wikidata.getPathCache(), item.startPath, { returnRange: true })
 			if (startTimeRange)
 			{
 				item.start_min = moment(startTimeRange.min)
@@ -348,7 +348,7 @@ entryPoint()
 		}
 		if (item.endPath)
 		{
-			const endTimeRange = flattenRelativeDate(wikidata.pathCache, item.endPath, { returnRange: true })
+			const endTimeRange = flattenRelativeDate(wikidata.getPathCache(), item.endPath, { returnRange: true })
 			if (endTimeRange)
 			{
 				item.end_min = moment(endTimeRange.min)

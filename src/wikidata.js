@@ -22,6 +22,13 @@ const wikidata = module.exports = {
 	 */
 	pathCache: {},
 
+	/**
+	 * Overrides values in the path cache.
+	 */
+	pathCacheOverrides: {},
+
+	_pathCacheProxy: undefined,
+
 	skipCache: false,
 	cacheBuster: undefined,
 
@@ -34,6 +41,11 @@ const wikidata = module.exports = {
 	 * Relative path to the path cache file.
 	 */
 	pathCacheFile: "intermediate/wikidata-path-cache.json",
+
+	/**
+	 * Relative path to the path cache overrides file.
+	 */
+	pathCacheOverridesFile: "intermediate/wikidata-path-cache-overrides.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
 	lang: "en,mul",
@@ -56,6 +68,8 @@ const wikidata = module.exports = {
 			}
 		}
 	},
+
+	getPathCache() { return this._pathCacheProxy; },
 
 	setLang: function(inLang)
 	{
@@ -144,6 +158,16 @@ const wikidata = module.exports = {
 		{
 			// cache doesn't exist or is invalid; continue without it
 		}
+		
+		try
+		{
+			const contents = await fs.promises.readFile(this.pathCacheOverridesFile)
+			this.pathCacheOverrides = JSON.parse(contents)
+		}
+		catch
+		{
+			// cache doesn't exist or is invalid; continue without it
+		}
 	},
 
 	writeCache: async function()
@@ -162,6 +186,15 @@ const wikidata = module.exports = {
 		fs.writeFile(this.pathCacheFile, JSON.stringify(this.pathCache), err => {
 			if (err) {
 				console.error(`Error writing wikidata path cache:`)
+				console.error(err)
+			}
+		})
+		
+		await mypath.ensureDirectoryForFile(this.pathCacheOverridesFile)
+
+		fs.writeFile(this.pathCacheOverridesFile, JSON.stringify(this.pathCacheOverrides), err => {
+			if (err) {
+				console.error(`Error writing wikidata path cache overrides:`)
 				console.error(err)
 			}
 		})
@@ -788,3 +821,9 @@ const wikidata = module.exports = {
 		}
 	}
 } 
+
+wikidata._pathCacheProxy = new Proxy(wikidata, {
+	get: function(target, name) {
+		return target.pathCacheOverrides[name] ?? target.pathCache[name]
+	}
+})
