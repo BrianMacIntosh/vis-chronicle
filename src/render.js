@@ -348,7 +348,7 @@ renderer.produceOutput = function(inputSpec, items)
 			}
 
 			// add a "tail" item after the end
-			outputObject.items.push({
+			const tailObject = {
 				id: outputItem.id + "-tail",
 				className: [outputItem.className, "visc-right-tail"].join(' '),
 				type: outputItem.type,
@@ -357,8 +357,9 @@ renderer.produceOutput = function(inputSpec, items)
 				end: tailEnd,
 				group: item.group,
 				subgroup: outputItem.subgroup
-			})
-			copyItemUntouchedProps(item, outputObject)
+			}
+			outputObject.items.push(tailObject)
+			copyItemUntouchedProps(item, tailObject)
 
 			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
 		}
@@ -371,7 +372,7 @@ renderer.produceOutput = function(inputSpec, items)
 				tailEnd = item.start_max.clone().add(expectation.duration.avg)
 
 				// add a "tail" item after the end
-				outputObject.items.push({
+				const tailObject = {
 					id: outputItem.id + "-tail",
 					className: [outputItem.className, "visc-right-tail"].join(' '),
 					type: outputItem.type,
@@ -380,8 +381,9 @@ renderer.produceOutput = function(inputSpec, items)
 					end: tailEnd,
 					group: item.group,
 					subgroup: outputItem.subgroup
-				})
-				copyItemUntouchedProps(item, outputObject)
+				}
+				outputObject.items.push(tailObject)
+				copyItemUntouchedProps(item, tailObject)
 
 				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
 			}
@@ -477,9 +479,19 @@ renderer.produceOutput = function(inputSpec, items)
 	// sort the objects into subgroups
 	//NOTE: allows same subgroup to be separate across different groups, unlike vis natively
 	const stackGroups = {}
+	var boxIndex = 0
 	for (const outputItem of outputObject.items)
 	{
 		if (outputItem.type == "background") continue
+
+		if (outputItem.type == "box" || outputItem.type == "range")
+		{
+			// do not attempt to sort single-point items into lines
+			// put them each in their own subgroup
+			// lets visjs stack them at runtime
+			//outputItem.subgroup = `box${boxIndex++}`
+			//continue
+		}
 
 		var stackGroup = stackGroups[outputItem.group]
 		if (!stackGroup) stackGroup = stackGroups[outputItem.group] = {}
