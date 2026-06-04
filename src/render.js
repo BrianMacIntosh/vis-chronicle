@@ -279,6 +279,9 @@ renderer.produceOutput = function(inputSpec, items)
 			continue
 		}
 
+		// can extend the end of the visc-toplabel element
+		var endTailEnd = undefined
+
 		// handle end date
 		if (item.end_min && item.end_max)
 		{
@@ -346,6 +349,8 @@ renderer.produceOutput = function(inputSpec, items)
 				outputItem.end = moment()
 				tailEnd = outputItem.end.add(excessDuration)
 			}
+			
+			endTailEnd = endTailEnd ? moment.max(endTailEnd, tailEnd) : tailEnd
 
 			// add a "tail" item after the end
 			const tailObject = {
@@ -370,6 +375,8 @@ renderer.produceOutput = function(inputSpec, items)
 				// entire range is open-ended, but with an uncertain start region
 				outputItem.end = item.start_max.clone()
 				tailEnd = item.start_max.clone().add(expectation.duration.avg)
+
+				endTailEnd = endTailEnd ? moment.max(endTailEnd, tailEnd) : tailEnd
 
 				// add a "tail" item after the end
 				const tailObject = {
@@ -467,6 +474,13 @@ renderer.produceOutput = function(inputSpec, items)
 			var classes = labelItem.className.split(' ')
 			classes = classes.filter(c => c != "visc-left-connection" && c != "visc-right-connection")
 			classes.push("visc-toplabel")
+
+			if (endTailEnd && endTailEnd > labelItem.end)
+			{
+				labelItem.end = moment.max(labelItem.end, endTailEnd)
+				classes.push("visc-right-tail")
+			}
+
 			labelItem.className = classes.join(' ')
 
 			outputObject.items.push(labelItem)
