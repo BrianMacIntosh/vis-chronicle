@@ -233,8 +233,8 @@ renderer.produceOutput = function(inputSpec, items)
 			//console.warn(`Item ${item.id} has no date data at all.`)
 			continue
 		}
-		assert(Boolean(item.start_min) == Boolean(item.start_max))
-		assert(Boolean(item.end_min) == Boolean(item.end_max))
+		//assert(Boolean(item.start_min) == Boolean(item.start_max))
+		//assert(Boolean(item.end_min) == Boolean(item.end_max))
 		assert(!(item.start_min > item.start_max))
 		assert(!(item.end_min > item.end_max))
 

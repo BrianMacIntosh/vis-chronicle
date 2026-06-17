@@ -156,25 +156,31 @@ entryPoint()
 			&& key != "entity"
 			&& key != "skipCache"
 			&& key != "startPath" && key != "endPath"
+			&& key != "startPathMin" && key != "endPathMin"
+			&& key != "startPathMax" && key != "endPathMax"
 	}
 
 	// bundle items that use the same queries
 	const queryBundles = {}
 	const pathQueries = []
+	const pushQuery = function(queryBundles, query, item) {
+		if (query)
+		{
+			query = wikidata.replaceQueryWildcards(query, item)
+			pathQueries.push(query)
+		}
+		return query
+	}
 	for (const item of wikidata.inputSpec.items)
 	{
 		if (item.finished) continue
 
-		if (item.startPath)
-		{
-			item.startPath = wikidata.replaceQueryWildcards(item.startPath, item)
-			pathQueries.push(item.startPath)
-		}
-		if (item.endPath)
-		{
-			item.endPath = wikidata.replaceQueryWildcards(item.endPath, item)
-			pathQueries.push(item.endPath)
-		}
+		item.startPath = pushQuery(queryBundles, item.startPath, item)
+		item.startPathMin = pushQuery(queryBundles, item.startPathMin, item)
+		item.startPathMax = pushQuery(queryBundles, item.startPathMax, item)
+		item.endPath = pushQuery(queryBundles, item.endPath, item)
+		item.endPathMin = pushQuery(queryBundles, item.endPathMin, item)
+		item.endPathMax = pushQuery(queryBundles, item.endPathMax, item)
 
 		// the bundle key is the queries, as well as any wildcard parameters
 		const keyObject = {}
@@ -335,28 +341,53 @@ entryPoint()
 	// propagate path query results to items
 	for (const item of wikidata.inputSpec.items)
 	{
+		var startRange = undefined, startRangeMin = undefined, startRangeMax = undefined
 		if (item.startPath)
 		{
-			const startTimeRange = flattenRelativeDate(wikidata.getPathCache(), item.startPath, { returnRange: true })
-			if (startTimeRange)
-			{
-				item.start_min = moment(startTimeRange.min)
-				item.start_max = moment(startTimeRange.max)
-			}
-			else
-				console.error(`Date for '${item.startPath}' wasn't cached.`)
+			startRange = flattenRelativeDate(wikidata.getPathCache(), item.startPath, { returnRange: true })
+			if (!startRange) console.error(`Date for '${item.startPath}' wasn't cached.`)
 		}
+		if (item.startPathMin)
+		{
+			startRangeMin = flattenRelativeDate(wikidata.getPathCache(), item.startPathMin, { returnRange: true })
+			if (!startRangeMin) console.error(`Date for '${item.startPathMin}' wasn't cached.`)
+		}
+		if (item.startPathMax)
+		{
+			startRangeMax = flattenRelativeDate(wikidata.getPathCache(), item.startPathMax, { returnRange: true })
+			if (!startRangeMax) console.error(`Date for '${item.startPathMax}' wasn't cached.`)
+		}
+		startRange = rangeUnionAdv(startRange, startRangeMin, startRangeMax)
+		if (startRange && startRange.min) item.start_min = moment(startRange.min)
+		if (startRange && startRange.max) item.start_max = moment(startRange.max)
+		
+		var endRange = undefined, endRangeMin = undefined, endRangeMax = undefined
 		if (item.endPath)
 		{
-			const endTimeRange = flattenRelativeDate(wikidata.getPathCache(), item.endPath, { returnRange: true })
-			if (endTimeRange)
-			{
-				item.end_min = moment(endTimeRange.min)
-				item.end_max = moment(endTimeRange.max)
-			}
-			else
-				console.error(`Date for '${item.endPath}' wasn't cached.`)
+			endRange = flattenRelativeDate(wikidata.getPathCache(), item.endPath, { returnRange: true })
+			if (!endRange) console.error(`Date for '${item.endPath}' wasn't cached.`)
 		}
+		if (item.endPathMin)
+		{
+			endRangeMin = flattenRelativeDate(wikidata.getPathCache(), item.endPathMin, { returnRange: true })
+			if (!endRangeMin) console.error(`Date for '${item.endPathMin}' wasn't cached.`)
+		}
+		if (item.endPathMax)
+		{
+			endRangeMax = flattenRelativeDate(wikidata.getPathCache(), item.endPathMax, { returnRange: true })
+			if (!endRangeMax) console.error(`Date for '${item.endPathMax}' wasn't cached.`)
+		}
+		endRange = rangeUnionAdv(endRange, endRangeMin, endRangeMax)
+		if (endRange && endRange.min) item.end_min = moment(endRange.min)
+		if (endRange && endRange.max) item.end_max = moment(endRange.max)
+
+		if (item.entity == "Q302") console.log(item)
+
+		//if (item.start_min && !item.start_max) item.start_max = item.end_max
+		//if (item.end_max && !item.end_min) item.end_min = item.start_min
+
+		assert(!(item.start_min > item.start_max), "Item start_min is greater than start_max")
+		assert(!(item.end_min > item.end_max), "Item end_min is greater than end_max")
 	}
 })
 .then(async () => {
