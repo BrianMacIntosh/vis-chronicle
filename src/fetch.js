@@ -381,8 +381,6 @@ entryPoint()
 		if (endRange && endRange.min) item.end_min = moment(endRange.min)
 		if (endRange && endRange.max) item.end_max = moment(endRange.max)
 
-		if (item.entity == "Q302") console.log(item)
-
 		//if (item.start_min && !item.start_max) item.start_max = item.end_max
 		//if (item.end_max && !item.end_min) item.end_min = item.start_min
 
