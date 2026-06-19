@@ -150,6 +150,7 @@ entryPoint()
 			&& key != "group"
 			&& key != "subgroup"
 			&& key != "itemQuery"
+			&& key != "excludeItems"
 			&& key != "type"
 			&& key != "label"
 			&& key != "className"

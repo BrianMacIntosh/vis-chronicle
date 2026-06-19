@@ -775,17 +775,22 @@ const wikidata = module.exports = {
 		for (const binding of data.results.bindings)
 		{
 			const newItem = structuredClone(templateItem)
+			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
+			newItem.generated = true
 			delete newItem.comment
 			delete newItem.itemQuery
 			delete newItem.items
-			newItem.entity = this.extractQidFromUrl(binding[itemVarName].value)
-			newItem.generated = true
 			const wikidataLabel = binding[itemVarName + "Label"].value
 
-			const labelFomat = templateItem.label ? templateItem.label : this.inputSpec.chronicle.defaultLabel
-			newItem.label = labelFomat.replaceAll("{_LABEL}", wikidataLabel).replaceAll("{_QID}", newItem.entity)
-				
-			newItems.push(newItem)
+			if (!newItem.excludeItems || newItem.excludeItems.indexOf(newItem.entity) < 0)
+			{
+				const labelFomat = templateItem.label ? templateItem.label : this.inputSpec.chronicle.defaultLabel
+				newItem.label = labelFomat.replaceAll("{_LABEL}", wikidataLabel).replaceAll("{_QID}", newItem.entity)
+					
+				newItems.push(newItem)
+			}
+
+			delete newItem.excludeItems
 		}
 
 		templateItem.finished = true
