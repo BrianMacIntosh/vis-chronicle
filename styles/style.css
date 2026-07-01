@@ -6,7 +6,7 @@
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) 50%);
 }
-.vis-item.vis-range.visc-open-left, .vis-item.vis-background.visc-open-left
+.vis-item.vis-range.visc-open-right .vis-item.vis-range.visc-open-left, .vis-item.vis-background.visc-open-right .vis-item.vis-background.visc-open-left
 {
 	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0));
 }
