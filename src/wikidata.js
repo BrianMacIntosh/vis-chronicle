@@ -615,15 +615,14 @@ const wikidata = module.exports = {
 	{
 		//TODO: might need smarter date interpretation, multiple value handling, etc
 		const propsToQuery = []
-		for (const wdProp of queries)
+		const qualsToQuery = []
+		for (const query of queries)
 		{
-			if (!this.pathCache[wdProp]) propsToQuery.push(wdProp)
+			if (!this.pathCache[query]) propsToQuery.push(query)
 			
 			// grab corresponding min/max props as well
-			query = `${wdProp}:P1319` // earliest date
-			if (!this.pathCache[query]) propsToQuery.push(query)
-			query = `${wdProp}:P1326` // latest date
-			if (!this.pathCache[query]) propsToQuery.push(query)
+			qualsToQuery.push(`${query}:P1319`) // earliest date
+			qualsToQuery.push(`${query}:P1326`) // latest date
 		}
 		if (propsToQuery.length > 0)
 		{
@@ -657,9 +656,55 @@ const wikidata = module.exports = {
 				if (!foundKeys.has(wdProp)) this.pathCache[wdProp] = { value: null }
 			}
 		}
+
+		await this._runPropQualifierPathQueries(qualsToQuery)
 	},
 
-	// runs a list of item-property-qualifier path queries (e.g. "Q129165:P39:Q938153:P580") and stores the values in the path cache
+	// runs a list of item-property-qualifier path queries (e.g. "Q302:P570:P1319") and stores the values in the path cache
+	_runPropQualifierPathQueries: async function(queries)
+	{
+		//TODO: might need smarter date interpretation, multiple value handling, etc
+		const qualsToQuery = []
+		for (const query of queries)
+		{
+			if (!this.pathCache[query]) qualsToQuery.push(query)
+		}
+		if (qualsToQuery.length > 0)
+		{
+			const qualMap = function(str) {
+				const split = str.split(':')
+				return `(wd:${split[0]} p:${split[1]} ps:${split[1]} pqv:${split[2]})`
+			}
+			const queryBuilder = new SparqlBuilder()
+			queryBuilder.addOutParam('?item')
+			queryBuilder.addOutParam('?p')
+			queryBuilder.addOutParam('?q')
+			queryBuilder.addQueryTerm(`VALUES (?item ?p ?psv ?q){${qualsToQuery.map(qualMap).join('')}}`)
+			queryBuilder.addQueryTerm('?item ?p [ ?q ?datev ].')
+			queryBuilder.addTimeBreak('?datev', '?date', '?precision')
+			const query = queryBuilder.build()
+			console.log(query)
+			const data = await this.runQuery(query)
+			const foundKeys = new Set()
+			for (const binding of data.results.bindings)
+			{
+				const itemId = this.extractQidFromUrl(binding['item'].value)
+				const propId = this.extractQidFromUrl(binding['p'].value)
+				const qualId = this.extractQidFromUrl(binding['q'].value)
+				const key = `${itemId}:${propId}:${qualId}`
+				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
+				foundKeys.add(key)
+			}
+
+			// mark items with no result as missing
+			for (const wdProp of qualsToQuery)
+			{
+				if (!foundKeys.has(wdProp)) this.pathCache[wdProp] = { value: null }
+			}
+		}
+	},
+
+	// runs a list of item-property-object-qualifier path queries (e.g. "Q129165:P39:Q938153:P580") and stores the values in the path cache
 	runQualifierPathQueries: async function(queries)
 	{
 		//TODO: might need smarter date interpretation, multiple value handling, etc
