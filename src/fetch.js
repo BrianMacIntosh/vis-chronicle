@@ -139,6 +139,8 @@ entryPoint()
 
 	// run term-based Wikidata queries
 
+	// True if the item property with the specified name has any bearing on the results of the query
+	// (and therefore needs to be used in the cache key)
 	const isQueryProperty = function(key)
 	{
 		if (key == "startEndQuery" || key == "startQuery" || key == "endQuery") return true
@@ -159,6 +161,9 @@ entryPoint()
 			&& key != "startPath" && key != "endPath"
 			&& key != "startPathMin" && key != "endPathMin"
 			&& key != "startPathMax" && key != "endPathMax"
+			&& key != "start" && key != "end"
+			&& key != "start_min" && key != "end_min"
+			&& key != "start_max" && key != "end_max"
 	}
 
 	// bundle items that use the same queries
@@ -339,9 +344,26 @@ entryPoint()
 	console.log(`There are ${pathQueries.length} path queries.`)
 	await wikidata.runPathQueries(pathQueries)
 
+	const tryProcessLiteralDate = function(item, key)
+	{
+		if (item[key])
+		{
+			const date = moment(item[key])
+			if (date.isValid()) item[key] = date
+		}
+	}
+
 	// propagate path query results to items
 	for (const item of wikidata.inputSpec.items)
 	{
+		// parse any literal dates from data into moments
+		tryProcessLiteralDate(item, "start")
+		tryProcessLiteralDate(item, "start_min")
+		tryProcessLiteralDate(item, "start_max")
+		tryProcessLiteralDate(item, "end")
+		tryProcessLiteralDate(item, "end_min")
+		tryProcessLiteralDate(item, "end_max")
+		
 		var startRange = undefined, startRangeMin = undefined, startRangeMax = undefined
 		if (item.startPath)
 		{
@@ -358,6 +380,18 @@ entryPoint()
 			startRangeMax = flattenRelativeDate(wikidata.getPathCache(), item.startPathMax, { returnRange: true })
 			if (!startRangeMax) console.error(`Date for '${item.startPathMax}' wasn't cached.`)
 		}
+
+		if (startRangeMin && !startRangeMin.min)
+		{
+			console.error(`Failed to flatten date '${item.startPathMin}'`)
+			continue
+		}
+		if (startRangeMax && !startRangeMin.max)
+		{
+			console.error(`Failed to flatten date '${item.startPathMax}'`)
+			continue
+		}
+
 		startRange = rangeUnionAdv(startRange, startRangeMin, startRangeMax)
 		if (startRange && startRange.min) item.start_min = moment(startRange.min)
 		if (startRange && startRange.max) item.start_max = moment(startRange.max)
