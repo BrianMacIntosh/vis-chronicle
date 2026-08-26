@@ -204,6 +204,13 @@ renderer.produceOutput = function(inputSpec, items)
 	var outputObject = { items: [], groups: inputSpec.groups, options: inputSpec.options }
 	for (const item of items)
 	{
+		// skip items with no date info whatsoever
+		if (!item.start && !item.end && !item.start_min && !item.start_max && !item.end_min && !item.end_max)
+		{
+			console.warn(`Skipping render of '${item.id}' (no date info).`)
+			continue
+		}
+
 		var outputItem = {
 			id: item.id,
 			content: item.label,
@@ -368,41 +375,47 @@ renderer.produceOutput = function(inputSpec, items)
 
 			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
 		}
-		else
+		else if (item.start_min && item.start_max && item.start_max > item.start_min)
 		{
-			if (item.start_min && item.start_max && item.start_max > item.start_min)
-			{
-				// entire range is open-ended, but with an uncertain start region
-				outputItem.end = item.start_max.clone()
-				tailEnd = item.start_max.clone().add(expectation.duration.avg)
+			// entire range is open-ended, but with an uncertain start region
+			outputItem.end = item.start_max.clone()
+			tailEnd = item.start_max.clone().add(expectation.duration.avg)
 
-				endTailEnd = endTailEnd ? moment.max(endTailEnd, tailEnd) : tailEnd
+			endTailEnd = endTailEnd ? moment.max(endTailEnd, tailEnd) : tailEnd
 
-				// add a "tail" item after the end
-				const tailObject = {
-					id: outputItem.id + "-tail",
-					className: [outputItem.className, "visc-right-tail"].join(' '),
-					type: outputItem.type,
-					content: item.label ? "&nbsp;" : "",
-					start: outputItem.end,
-					end: tailEnd,
-					group: item.group,
-					subgroup: outputItem.subgroup
-				}
-				outputObject.items.push(tailObject)
-				copyItemUntouchedProps(item, tailObject)
-
-				outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+			// add a "tail" item after the end
+			const tailObject = {
+				id: outputItem.id + "-tail",
+				className: [outputItem.className, "visc-right-tail"].join(' '),
+				type: outputItem.type,
+				content: item.label ? "&nbsp;" : "",
+				start: outputItem.end,
+				end: tailEnd,
+				group: item.group,
+				subgroup: outputItem.subgroup
 			}
-			else
-			{
-				// entire range is open-ended
-				outputItem.start = item.start_min ?? item.start_max
-				outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
-				outputItem.className = [ outputItem.className, 'visc-open-right' ].join(' ')
-				outputObject.items.push(outputItem)
-				continue
-			}
+			outputObject.items.push(tailObject)
+			copyItemUntouchedProps(item, tailObject)
+
+			outputItem.className = [ outputItem.className, 'visc-right-connection' ].join(' ')
+		}
+		else if (item.start_min)
+		{
+			// entire range is open-ended to the right
+			outputItem.start = item.start_min ?? item.start_max
+			outputItem.end = outputItem.start.clone().add(expectation.duration.avg)
+			outputItem.className = [ outputItem.className, 'visc-open-right' ].join(' ')
+			outputObject.items.push(outputItem)
+			continue
+		}
+		else if (item.end_max)
+		{
+			// entire range is open-ended to the left
+			outputItem.end = item.end_min ?? item.end_max
+			outputItem.start = outputItem.end.clone().subtract(expectation.duration.avg)
+			outputItem.className = [ outputItem.className, 'visc-open-left' ].join(' ')
+			outputObject.items.push(outputItem)
+			continue
 		}
 		
 		// handle start date
