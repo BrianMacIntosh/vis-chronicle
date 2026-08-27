@@ -368,6 +368,72 @@ const wikidata = module.exports = {
 		return lastBindings
 	},
 
+	_groupBindingsByEntity: function(bindings, data, entityVarName)
+	{
+		const bindingsByEntity = {}
+
+		// sort out the bindings by entity
+		for (const binding of data.results.bindings)
+		{
+			// read entity id
+			assert(binding[entityVarName].type == 'uri')
+			const entityId = this.extractQidFromUrl(binding[entityVarName].value)
+
+			// get array for entity-specific results
+			var entityBindings = bindingsByEntity[entityId]
+			if (!entityBindings)
+			{
+				entityBindings = []
+				bindingsByEntity[entityId] = entityBindings
+			}
+
+			entityBindings.push(binding)
+		}
+
+		return bindingsByEntity
+	},
+
+	_filterGroupedBindings: function(bindingsByEntity, readBinding)
+	{
+		const readBindings = function(bindings)
+		{
+			const results = []
+			for (const binding of bindings)
+			{
+				const newBinding = readBinding(binding)
+				const newBindingSerialized = JSON.stringify(newBinding) //HACK: serialization for comparison
+
+				//HACK: omit perfect duplicates. This can happen with overlapping statements for same position (e.g. Q8423 "position held" for subclass:king)
+				var isDupe = false
+				for (const result of results)
+				{
+					isDupe = (JSON.stringify(result) == newBindingSerialized)
+					if (isDupe) break
+				}
+				
+				if (!isDupe) results.push(readBinding(binding))
+			}
+			return results
+		}
+
+		const result = {}
+		for (const entityId in bindingsByEntity)
+		{
+			const entityBindings = bindingsByEntity[entityId]
+			if (entityBindings.length == 1)
+			{
+				result[entityId] = readBinding(entityBindings[0])
+			}
+			else // entityBindings.length > 1
+			{
+				var lastBindings = this.filterBestBindings(entityBindings)
+				result[entityId] = readBindings(lastBindings)
+			}
+		}
+
+		return result;
+	},
+
 	// runs a SPARQL query for time values on an item or set of items
 	runTimeQueryTerm: async function (queryTermStr, items)
 	{
@@ -409,7 +475,6 @@ const wikidata = module.exports = {
 		// but different properties with different prev/next values are separate.
 		queryBuilder.addGroupParam(propVar)
 
-		queryBuilder.addOutParam(rankVar, { groupBy: true })
 		if (queryTerm.general)
 		{
 			queryBuilder.addQueryTerm(queryTerm.general)
@@ -432,6 +497,7 @@ const wikidata = module.exports = {
 			queryBuilder.addOptionalQueryTerm(queryTerm[termKey])
 		}
 		queryBuilder.addOptionalQueryTerm(`${propVar} wikibase:rank ${rankVar}.`)
+		queryBuilder.addOutParam(rankVar, { groupBy: true })
 
 		const query = queryBuilder.build()
 		const data = await this.runQuery(query, item.skipCache)
@@ -462,65 +528,68 @@ const wikidata = module.exports = {
 			return result
 		}
 
-		const readBindings = function(bindings)
-		{
-			const results = []
-			for (const binding of bindings)
-			{
-				const newBinding = readBinding(binding)
-				const newBindingSerialized = JSON.stringify(newBinding) //HACK: serialization for comparison
+		// arrays of bindings, grouped by entity id
+		const bindingsByEntity = this._groupBindingsByEntity(data.results.bindings, data, entityVarName)
 
-				//HACK: omit perfect duplicates. This can happen with overlapping statements for same position (e.g. Q8423 "position held" for subclass:king)
-				var isDupe = false
-				for (const result of results)
-				{
-					isDupe = (JSON.stringify(result) == newBindingSerialized)
-					if (isDupe) break
-				}
-				
-				if (!isDupe) results.push(readBinding(binding))
+		// filter results down to best per entity
+		return this._filterGroupedBindings(bindingsByEntity, readBinding)
+	},
+
+	// runs a SPARQL query for WD item values on an item or set of items
+	runItemQueryTerm: async function (queryTermStr, items)
+	{
+		const entityVarName = '_entity'
+		const entityVar = `?${entityVarName}`
+
+		// create a dummy item representing the collective items
+		//TODO: validate that they match
+		item = { ...items[0] }
+		item.entity = entityVar
+		item.id = "DUMMY"
+
+		const queryBuilder = new SparqlBuilder()
+		queryBuilder.addCacheBuster(item.cacheBuster ? item.cacheBuster : this.cacheBuster)
+
+		queryTerm = this.getValueQueryTerm(queryTermStr, item)
+		
+		// assembly query targets
+		const targetEntities = new Set()
+		for (const item of items)
+		{
+			targetEntities.add(`wd:${item.entity}`)
+		}
+		queryBuilder.addQueryTerm(`VALUES ${entityVar}{${[...targetEntities].join(' ')}}`)
+		queryBuilder.addOutParam(entityVar)
+		if (queryTerm.general)
+		{
+			queryBuilder.addQueryTerm(queryTerm.general)
+		}
+		if (queryTerm.value)
+		{
+			queryBuilder.addQueryTerm(queryTerm.value)
+			queryBuilder.addOutParam('?_value')
+		}
+
+		const query = queryBuilder.build()
+		const data = await this.runQuery(query, item.skipCache)
+		console.log(`\tQuery for ${item.id} returned ${data.results.bindings.length} results.`)
+
+		const readBinding = function(binding)
+		{
+			const result = {}
+			if (binding['_value'])
+			{
+				const valueSplit = binding['_value'].value.split(';')
+				result.value = wikidata.extractQidFromUrl(valueSplit[0]) //HACK: does not support multiple values
 			}
-			return results
+			return result
 		}
 
 		// arrays of bindings, grouped by entity id
-		const bindingsByEntity = {}
-
-		// sort out the bindings by entity
-		for (const binding of data.results.bindings)
-		{
-			// read entity id
-			assert(binding[entityVarName].type == 'uri')
-			const entityId = this.extractQidFromUrl(binding[entityVarName].value)
-
-			// get array for entity-specific results
-			var entityBindings = bindingsByEntity[entityId]
-			if (!entityBindings)
-			{
-				entityBindings = []
-				bindingsByEntity[entityId] = entityBindings
-			}
-
-			entityBindings.push(binding)
-		}
+		const bindingsByEntity = this._groupBindingsByEntity(data.results.bindings, data, entityVarName)
 
 		// filter results down to best per entity
-		const result = {}
-		for (const entityId in bindingsByEntity)
-		{
-			const entityBindings = bindingsByEntity[entityId]
-			if (entityBindings.length == 1)
-			{
-				result[entityId] = readBinding(entityBindings[0])
-			}
-			else // entityBindings.length > 1
-			{
-				var lastBindings = this.filterBestBindings(entityBindings)
-				result[entityId] = readBindings(lastBindings)
-			}
-		}
-
-		return result;
+		return this._filterGroupedBindings(bindingsByEntity, readBinding)
 	},
 
 	/**

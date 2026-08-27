@@ -12,6 +12,9 @@
 
 		"pointInTime": "{entity} p:P585 ?_prop. ?_prop psv:P585 ?_value.",
 
+		"follows": "{entity} wdt:P155 ?_value.",
+		"followedBy": "{entity} wdt:P156 ?_value.",
+
 		"positionHeldStartEnd": {
 			"general": "{entity} p:P39 ?_prop. ?_prop ps:P39 {position}.",
 			"start": "?_prop pqv:P580 ?_start_value.",

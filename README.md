@@ -92,6 +92,8 @@ Item properties:
 * `type`: vis-timeline type of the item.
 * `startQuery`: A SPARQL query segment that selects the desired start time of the object. These should select Wikidata properties (not statements or values). Can be a query term like `{entity} p:P569 ?_prop. ?_prop psv:P569 ?_value.` or a template query like `#dateOfBirth`.
 * `endQuery`: Same as `startQuery`, but for the end time.
+* `previousQuery`: A SPARQL query segment that selects the item preceding this one in series.
+* `nextQuery`: Same as `previousQuery`, but for the next item.
 * `startEndQuery`: Use instead of `startQuery` and `endQuery` separately if the start and end times are from qualifiers. This guarantees they will be drawn from the same statement.
     * `general`: General query segment, usually for selecting the item and property.
 	* `start`: Query segment for selecting the start value.

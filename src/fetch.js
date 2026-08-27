@@ -144,6 +144,7 @@ entryPoint()
 	const isQueryProperty = function(key)
 	{
 		if (key == "startEndQuery" || key == "startQuery" || key == "endQuery") return true
+		if (key == "previousQuery" || key == "nextQuery") return true
 
 		//TODO: look at the queries for parameter names
 		return key != "comment"
@@ -295,7 +296,7 @@ entryPoint()
 						wikidataToRange(entityResult[i].max))
 					aggregateResult = rangeUnion(aggregateResult, selfAggregate)
 					aggregateResult.previous = aggregateResult.previous ?? entityResult[i].previous //HACK: does not handle multiple values
-					aggregateResult.next = aggregateResult.previous ?? entityResult[i].next
+					aggregateResult.next = aggregateResult.next ?? entityResult[i].next
 				}
 				
 				// there may be multiple source items making the same query
@@ -334,6 +335,22 @@ entryPoint()
 				copySingleResult(result, function(item, result) {
 					item.end_min = result.min
 					item.end_max = result.max
+					item.next = result.next
+				})
+			}
+			if (representativeItem.previousQuery)
+			{
+				const result = await wikidata.runItemQueryTerm(representativeItem.previousQuery, bundle)
+				for (const key in result) { result[key].previous = result[key].value; result[key].value = undefined; }
+				copySingleResult(result, function(item, result) {
+					item.previous = result.previous
+				})
+			}
+			if (representativeItem.nextQuery)
+			{
+				const result = await wikidata.runItemQueryTerm(representativeItem.nextQuery, bundle)
+				for (const key in result) { result[key].next = result[key].value; result[key].value = undefined; }
+				copySingleResult(result, function(item, result) {
 					item.next = result.next
 				})
 			}
