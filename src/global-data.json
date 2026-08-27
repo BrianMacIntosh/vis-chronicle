@@ -54,6 +54,13 @@
 			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
 			"end": "?_prop psv:P571 ?_end_value.",
 			"end_max": "?_prop pqv:P1326 ?_end_max_value."
+		},
+		"pointInTimeRange": {
+			"general": "{entity} p:P585 ?_prop.",
+			"start": "?_prop psv:P585 ?_start_value.",
+			"start_min": "?_prop pqv:P1319 ?_start_min_value.",
+			"end": "?_prop psv:P585 ?_end_value.",
+			"end_max": "?_prop pqv:P1326 ?_end_max_value."
 		}
 	},
 	"itemQueryTemplates":
