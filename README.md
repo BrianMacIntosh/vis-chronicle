@@ -98,6 +98,7 @@ Item properties:
     * `general`: General query segment, usually for selecting the item and property.
 	* `start`: Query segment for selecting the start value.
 	* `end`: Query segment for selecting the end value.
+* `disambiguate`: If the `startEndQuery` produces multiple ranges, a critereon used to select which ones should be used. Currently only supports `"earliest-start"` and `"latest-end"`.
 * `expectedDuration`: Describes the expected duration, for hinting if the start or end is missing.
     * `min`: The absolute minimum duration.
 	* `max`: The absolute maximum duration.

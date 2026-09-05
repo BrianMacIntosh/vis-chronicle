@@ -212,6 +212,52 @@ entryPoint()
 		}
 	}
 
+	const disambiguateResults = function(results)
+	{
+		if (!item.disambiguation) return results
+
+		var bestTime
+		var bestResult
+
+		if (item.disambiguation == "earliest-start")
+		{
+			for (const result of results)
+			{
+				var aggregateTime = rangeUnionAdv(
+					wikidataToRange(result.start),
+					wikidataToRange(result.start_min),
+					wikidataToRange(result.start_max))
+				if (!bestResult || aggregateTime.min < bestTime)
+				{
+					bestResult = result
+					bestTime = aggregateTime.min
+				}
+			}
+			return [ bestResult ]
+		}
+		else if (item.disambiguation == "latest-end")
+		{
+			for (const result of results)
+			{
+				var aggregateTime = rangeUnionAdv(
+					wikidataToRange(result.end),
+					wikidataToRange(result.end_min),
+					wikidataToRange(result.end_max))
+				if (!bestResult || aggregateTime.max > bestTime)
+				{
+					bestResult = result
+					bestTime = aggregateTime.max
+				}
+			}
+			return [ bestResult ]
+		}
+		else
+		{
+			console.warn(`Unrecognized disambiguation critereon ${item.disambiguation}.`);
+			return results
+		}
+	}
+
 	console.log(`There are ${Object.keys(queryBundles).length} query bundles.`)
 	for (const bundleKey in queryBundles)
 	{
@@ -258,8 +304,11 @@ entryPoint()
 				{
 					if (item.entity == entityId)
 					{
+						// decide which items will be kept
+						const keepResults = disambiguateResults(entityResult)
+
 						// clone the item for each result beyond the first
-						for (var i = 1; i < entityResult.length; ++i)
+						for (var i = 1; i < keepResults.length; ++i)
 						{
 							const newItem = structuredClone(item)
 							newItem.id = `${newItem.id}-v${i}`
@@ -268,11 +317,11 @@ entryPoint()
 							newItem.subgroup = `${item.subgroup ? item.subgroup : item.entity}-clone${i}`
 
 							wikidata.inputSpec.items.push(newItem) //HACK: modifying original array
-							aggregateHelper(newItem, entityResult[i])
+							aggregateHelper(newItem, keepResults[i])
 						}
 
 						// populate the first result into the original item
-						aggregateHelper(item, entityResult[0])
+						aggregateHelper(item, keepResults[0])
 					}
 				}
 			}
