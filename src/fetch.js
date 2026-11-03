@@ -63,7 +63,7 @@ async function entryPoint() {}
 entryPoint()
 .then(async () => {
 
-	await wikidata.readInputSpec(path.join(process.cwd(), specFile));
+	await wikidata.readInputSpec(path.resolve(specFile));
 
 })
 .then(async () => {
