@@ -1,0 +1,29 @@
+{
+	"groups":
+	[
+		{
+			"id": "kings",
+			"content": ""
+		}
+	],
+	"options":
+	{
+		"width": "100%",
+		"preferZoom": false,
+		"showCurrentTime": true,
+		"stack": false,
+		"stackSubgroups": false,
+		"verticalScroll": true
+	},
+	"items":
+	[
+		{
+			"comment": "Kings of Judah",
+			"itemQuery": "#withPosition",
+			"group": "kings",
+			"position": "Q10550167",
+
+			"startEndQuery": "#positionHeldStartEnd"
+		}
+	]
+}

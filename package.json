@@ -26,8 +26,7 @@
     "styles/"
   ],
   "scripts": {
-    "test": "node src/fetch.js test/presidents.json test/out/presidents.json -v --out-metadata test/out/presidents-metadata.json",
-    "test:fresh": "node src/fetch.js test/presidents.json test/out/presidents.json -v --out-metadata test/out/presidents-metadata.json --skip-wd-cache"
+    "test": "node test/run.js"
   },
   "author": {
     "name": "Brian MacIntosh",
