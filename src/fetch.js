@@ -60,6 +60,8 @@ wikidata.initialize()
 
 async function entryPoint() {}
 
+var cacheLoaded = false
+
 entryPoint()
 .then(async () => {
 
@@ -69,6 +71,7 @@ entryPoint()
 .then(async () => {
 
 	await wikidata.readCache();
+	cacheLoaded = true
 
 })
 .then(async () => {
@@ -526,4 +529,4 @@ entryPoint()
 	process.exitCode = 1
 
 })
-.finally(async () => { await wikidata.writeCache(); })
+.finally(async () => { if (cacheLoaded) await wikidata.writeCache(); })
