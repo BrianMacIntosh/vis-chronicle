@@ -24,6 +24,7 @@ if (!specFile)
 {
 	console.error(`No specification file or directory provided.`)
 	console.log(`Usage: vis-chronicle IN [OUT]`)
+	process.exit(1)
 }
 else
 {
@@ -499,6 +500,7 @@ entryPoint()
 		if (err) {
 			console.error(`Error writing output file:`)
 			console.error(err)
+			process.exitCode = 1
 		}
 	});
 
@@ -512,6 +514,7 @@ entryPoint()
 			if (err) {
 				console.error(`Error writing metadata output file:`)
 				console.error(err)
+				process.exitCode = 1
 			}
 		});
 	}
@@ -520,6 +523,7 @@ entryPoint()
 .catch((reason) => {
 
 	console.error(reason)
+	process.exitCode = 1
 
 })
 .finally(async () => { await wikidata.writeCache(); })
