@@ -1,0 +1,41 @@
+{
+	"groups":
+	[
+		{
+			"id": "presidents",
+			"content": ""
+		}
+	],
+	"options":
+	{
+		"width": "100%",
+		"preferZoom": false,
+		"showCurrentTime": true,
+		"stack": false,
+		"stackSubgroups": false,
+		"verticalScroll": true
+	},
+	"queryTemplates":
+	{
+		"dateOfBirth": "{entity} p:P569 ?_prop. ?_prop psv:P569 ?_value.",
+		"dateOfDeath": "{entity} p:P570 ?_prop. ?_prop psv:P570 ?_value."
+	},
+	"items":
+	[
+		{
+			"comment": "All United States presidents",
+			"itemQuery": "?_node wdt:P39 wd:Q11696. ?_node wdt:P31 wd:Q5.",
+			"group": "presidents",
+
+			"startQuery": "#dateOfBirth",
+			"endQuery": "#dateOfDeath"
+		},
+		{
+			"label": "Ed Kealty (fictional)",
+			"entity": "Q5335019",
+			"group": "presidents",
+			"startQuery": "#dateOfBirth",
+			"endQuery": "#dateOfDeath"
+		}
+	]
+}

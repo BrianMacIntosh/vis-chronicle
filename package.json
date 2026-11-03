@@ -21,7 +21,14 @@
     ".": "./src/index.js",
     "./wikidataToRange.js": "./src/wikidataToRange.js"
   },
-  "scripts": {},
+  "files": [
+    "src/",
+    "styles/"
+  ],
+  "scripts": {
+    "test": "node src/fetch.js test/presidents.json test/out/presidents.json -v --out-metadata test/out/presidents-metadata.json",
+    "test:fresh": "node src/fetch.js test/presidents.json test/out/presidents.json -v --out-metadata test/out/presidents-metadata.json --skip-wd-cache"
+  },
   "author": {
     "name": "Brian MacIntosh",
     "email": "brianamacintosh@gmail.com",

@@ -2,6 +2,10 @@
 # User desktop customization
 desktop.ini
 
+# vis-chronicle caches and test output
+intermediate/
+test/out/
+
 # Logs
 logs
 *.log
