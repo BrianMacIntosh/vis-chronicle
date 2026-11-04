@@ -46,7 +46,7 @@ const wikidata = module.exports = {
 	/**
 	 * Properties to read from each reference.
 	 */
-	referenceProperties: [ "P854", "P248" ],
+	referenceProperties: [ "P854", "P248", "P304" ],
 
 	/**
 	 * Relative path to the query cache file.
@@ -949,7 +949,7 @@ const wikidata = module.exports = {
 	/**
 	 * Fetches the references on the specified statements, using the reference cache where possible.
 	 * @param {*} statements Iterable of statement URIs.
-	 * @returns An object mapping statement URI to an array of reference objects, like { P854: "http://...", P248: "Q123" }.
+	 * @returns An object mapping statement URI to an array of reference objects, like { P854: "http://...", P248: "Q123", P304: "12-14" }.
 	 */
 	fetchStatementReferences: async function(statements)
 	{
