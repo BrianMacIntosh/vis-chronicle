@@ -43,7 +43,7 @@ const fs = require('fs');
 const wikidata = require('./wikidata.js')
 const renderer = require('./render.js')
 const mypath = require("./mypath.js");
-const { flattenRelativeDate, rangeUnion, rangeUnionAdv } = require('./relativeDates.js');
+const { breakRelativeDate, flattenRelativeDate, rangeUnion, rangeUnionAdv } = require('./relativeDates.js');
 const wikidataToRange2 = require('./wikidataToRange.js')
 
 function wikidataToRange(param)
@@ -56,7 +56,29 @@ wikidata.cacheBuster = values["cachebuster"]
 wikidata.sparqlUrl = values["query-url"]
 wikidata.verboseLogging = values["verbose"]
 wikidata.setLang(values["lang"])
+wikidata.fetchReferences = !!metadataOutputFile // references are only output in the metadata
 wikidata.initialize()
+
+// Records that the specified statements contributed to the item's time values
+function addItemStatements(item, statements)
+{
+	if (!wikidata.fetchReferences || !statements) return
+	if (!item._statements) item._statements = []
+	for (const statement of statements)
+	{
+		if (statement && item._statements.indexOf(statement) < 0) item._statements.push(statement)
+	}
+}
+
+// Records the statement that the root of the specified path query came from
+function addPathStatement(item, pathQuery)
+{
+	if (!pathQuery) return
+	const parsedPath = breakRelativeDate(pathQuery)
+	if (!parsedPath) return
+	const cacheEntry = wikidata.getPathCache()[parsedPath[0]]
+	if (cacheEntry && cacheEntry.value) addItemStatements(item, [ cacheEntry.statement ])
+}
 
 async function entryPoint() {}
 
@@ -295,6 +317,7 @@ entryPoint()
 					next: entityResult.next
 				}
 				func(item, aggregateResult)
+				addItemStatements(item, entityResult.statements)
 				item.finished = true
 			}
 
@@ -341,8 +364,10 @@ entryPoint()
 				if (!(entityResult instanceof Array)) entityResult = [ entityResult ]
 
 				var aggregateResult = {}
+				const statements = []
 				for (var i = 0; i < entityResult.length; ++i)
 				{
+					if (entityResult[i].statements) statements.push(...entityResult[i].statements)
 					var selfAggregate = rangeUnionAdv(
 						wikidataToRange(entityResult[i].value),
 						wikidataToRange(entityResult[i].min),
@@ -358,6 +383,7 @@ entryPoint()
 					if (item.entity == entityId)
 					{
 						func(item, aggregateResult)
+						addItemStatements(item, statements)
 						item.finished = true
 					}
 				}
@@ -433,7 +459,15 @@ entryPoint()
 		tryProcessLiteralDate(item, "end")
 		tryProcessLiteralDate(item, "end_min")
 		tryProcessLiteralDate(item, "end_max")
-		
+
+		// track the statements the path dates came from
+		addPathStatement(item, item.startPath)
+		addPathStatement(item, item.startPathMin)
+		addPathStatement(item, item.startPathMax)
+		addPathStatement(item, item.endPath)
+		addPathStatement(item, item.endPathMin)
+		addPathStatement(item, item.endPathMax)
+
 		var startRange = undefined, startRangeMin = undefined, startRangeMax = undefined
 		if (item.startPath)
 		{
@@ -492,6 +526,42 @@ entryPoint()
 		assert(!(item.start_min > item.start_max), "Item start_min is greater than start_max")
 		assert(!(item.end_min > item.end_max), "Item end_min is greater than end_max")
 	}
+})
+.then(async () => {
+
+	if (!wikidata.fetchReferences) return
+
+	// fetch references for all statements that contributed to item times
+	const allStatements = new Set()
+	for (const item of wikidata.inputSpec.items)
+	{
+		if (item._statements) item._statements.forEach(s => allStatements.add(s))
+	}
+
+	console.log(`Fetching references for ${allStatements.size} statements.`)
+	const referencesByStatement = await wikidata.fetchStatementReferences(allStatements)
+
+	for (const item of wikidata.inputSpec.items)
+	{
+		// collect references, omitting duplicates cited by multiple statements
+		const references = []
+		const seen = new Set()
+		for (const statement of item._statements ?? [])
+		{
+			for (const reference of referencesByStatement[statement] ?? [])
+			{
+				const key = JSON.stringify(reference)
+				if (!seen.has(key))
+				{
+					seen.add(key)
+					references.push(reference)
+				}
+			}
+		}
+		item.references = references
+		delete item._statements
+	}
+
 })
 .then(async () => {
 

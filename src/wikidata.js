@@ -29,8 +29,24 @@ const wikidata = module.exports = {
 
 	_pathCacheProxy: undefined,
 
+	/**
+	 * Caches references for statements, using the statement URI as the key.
+	 * Values are arrays of reference objects.
+	 */
+	referenceCache: {},
+
 	skipCache: false,
 	cacheBuster: undefined,
+
+	/**
+	 * If true, references will be fetched and included in the metadata output.
+	 */
+	fetchReferences: false,
+
+	/**
+	 * Properties to read from each reference.
+	 */
+	referenceProperties: [ "P854", "P248" ],
 
 	/**
 	 * Relative path to the query cache file.
@@ -46,6 +62,11 @@ const wikidata = module.exports = {
 	 * Relative path to the path cache overrides file.
 	 */
 	pathCacheOverridesFile: "intermediate/wikidata-path-cache-overrides.json",
+
+	/**
+	 * Relative path to the reference cache file.
+	 */
+	referenceCacheFile: "intermediate/wikidata-reference-cache.json",
 
 	sparqlUrl: "https://query.wikidata.org/sparql",
 	lang: "en,mul",
@@ -168,6 +189,28 @@ const wikidata = module.exports = {
 		{
 			// cache doesn't exist or is invalid; continue without it
 		}
+
+		try
+		{
+			const contents = await fs.promises.readFile(this.referenceCacheFile)
+			const cacheData = JSON.parse(contents)
+
+			// cached references are only valid if they were read with the same reference properties
+			if (this._referencePropertiesKey(cacheData.properties) == this._referencePropertiesKey(this.referenceProperties))
+			{
+				this.referenceCache = cacheData.statements ?? {}
+			}
+		}
+		catch
+		{
+			// cache doesn't exist or is invalid; continue without it
+		}
+	},
+
+	// Produces a comparable key for a list of reference properties.
+	_referencePropertiesKey: function(properties)
+	{
+		return properties ? [...properties].sort().join(',') : ''
 	},
 
 	writeCache: async function()
@@ -195,6 +238,16 @@ const wikidata = module.exports = {
 		fs.writeFile(this.pathCacheOverridesFile, JSON.stringify(this.pathCacheOverrides), err => {
 			if (err) {
 				console.error(`Error writing wikidata path cache overrides:`)
+				console.error(err)
+			}
+		})
+
+		await mypath.ensureDirectoryForFile(this.referenceCacheFile)
+
+		const referenceCacheData = { properties: this.referenceProperties, statements: this.referenceCache }
+		fs.writeFile(this.referenceCacheFile, JSON.stringify(referenceCacheData), err => {
+			if (err) {
+				console.error(`Error writing wikidata reference cache:`)
 				console.error(err)
 			}
 		})
@@ -397,21 +450,39 @@ const wikidata = module.exports = {
 	{
 		const readBindings = function(bindings)
 		{
+			// serializes a result for comparison, ignoring the statements it came from
+			const serialize = function(result)
+			{
+				const { statements, ...rest } = result
+				return JSON.stringify(rest) //HACK: serialization for comparison
+			}
+
 			const results = []
 			for (const binding of bindings)
 			{
 				const newBinding = readBinding(binding)
-				const newBindingSerialized = JSON.stringify(newBinding) //HACK: serialization for comparison
+				const newBindingSerialized = serialize(newBinding)
 
 				//HACK: omit perfect duplicates. This can happen with overlapping statements for same position (e.g. Q8423 "position held" for subclass:king)
-				var isDupe = false
+				// The statements of omitted duplicates are merged into the kept result.
+				var dupeOf = undefined
 				for (const result of results)
 				{
-					isDupe = (JSON.stringify(result) == newBindingSerialized)
-					if (isDupe) break
+					if (serialize(result) == newBindingSerialized)
+					{
+						dupeOf = result
+						break
+					}
 				}
-				
-				if (!isDupe) results.push(readBinding(binding))
+
+				if (!dupeOf)
+				{
+					results.push(newBinding)
+				}
+				else if (newBinding.statements)
+				{
+					dupeOf.statements = [ ...new Set([ ...(dupeOf.statements ?? []), ...newBinding.statements ]) ]
+				}
 			}
 			return results
 		}
@@ -473,7 +544,7 @@ const wikidata = module.exports = {
 
 		// Group by prop object so that multiple prev/next values on the same property are grouped,
 		// but different properties with different prev/next values are separate.
-		queryBuilder.addGroupParam(propVar)
+		queryBuilder.addOutParam(propVar, { groupBy: true })
 
 		if (queryTerm.general)
 		{
@@ -524,6 +595,10 @@ const wikidata = module.exports = {
 					const valueSplit = binding[termOtherVar].value.split(';')
 					result[termKey] = wikidata.extractQidFromUrl(valueSplit[0]) //HACK: does not support multiple values
 				}
+			}
+			if (binding._prop && binding._prop.type == 'uri')
+			{
+				result.statements = [ binding._prop.value ]
 			}
 			return result
 		}
@@ -602,6 +677,32 @@ const wikidata = module.exports = {
 	},
 
 	/**
+	 * Returns true if the specified path key has a usable entry in the path cache.
+	 */
+	_isPathCached: function(key)
+	{
+		const entry = this.pathCache[key]
+		if (!entry) return false
+
+		// backwards compatibility: entries cached before statements were tracked need to be re-queried for references
+		if (this.fetchReferences && entry.value && entry.statement === undefined) return false
+
+		return true
+	},
+
+	/**
+	 * Builds a path cache entry from a binding with 'date', 'precision', and 'statement'.
+	 */
+	_makePathCacheEntry: function(binding)
+	{
+		return {
+			value: this.normalizeWikidataDate(binding['date'].value),
+			precision: binding['precision'].value,
+			statement: binding['statement'] ? binding['statement'].value : null
+		}
+	},
+
+	/**
 	 * Runs an unsorted list of path queries.
 	 */
 	runPathQueries: async function(queries)
@@ -651,14 +752,16 @@ const wikidata = module.exports = {
 		const idsToQuery = []
 		for (const wdId of queries)
 		{
-			if (!this.pathCache[wdId]) idsToQuery.push(wdId)
+			if (!this._isPathCached(wdId)) idsToQuery.push(wdId)
 		}
 		if (idsToQuery.length > 0)
 		{
 			const queryBuilder = new SparqlBuilder()
 			queryBuilder.addOutParam('?item')
 			queryBuilder.addQueryTerm(`VALUES ?item{${idsToQuery.map(id => `wd:${id}`).join(' ')}}`)
-			queryBuilder.addQueryTerm(`?item (p:P585/psv:P585)|(p:P580/psv:P580)|(p:P569/psv:P569)|(p:P571/psv:P571) ?value.`)
+			queryBuilder.addOutParam('?statement')
+			queryBuilder.addQueryTerm(`VALUES (?p ?psv){(p:P585 psv:P585)(p:P580 psv:P580)(p:P569 psv:P569)(p:P571 psv:P571)}`)
+			queryBuilder.addQueryTerm(`?item ?p ?statement. ?statement ?psv ?value.`)
 			queryBuilder.addTimeBreak('?value', '?date', '?precision')
 			const query = queryBuilder.build()
 			console.log(query)
@@ -667,7 +770,7 @@ const wikidata = module.exports = {
 			for (const binding of data.results.bindings)
 			{
 				const key = this.extractQidFromUrl(binding['item'].value)
-				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
+				this.pathCache[key] = this._makePathCacheEntry(binding)
 				foundKeys.add(key)
 			}
 
@@ -687,7 +790,7 @@ const wikidata = module.exports = {
 		const qualsToQuery = []
 		for (const query of queries)
 		{
-			if (!this.pathCache[query]) propsToQuery.push(query)
+			if (!this._isPathCached(query)) propsToQuery.push(query)
 			
 			// grab corresponding min/max props as well
 			qualsToQuery.push(`${query}:P1319`) // earliest date
@@ -702,6 +805,7 @@ const wikidata = module.exports = {
 			const queryBuilder = new SparqlBuilder()
 			queryBuilder.addOutParam('?item')
 			queryBuilder.addOutParam('?p')
+			queryBuilder.addOutParam('?statement')
 			queryBuilder.addQueryTerm(`VALUES (?item ?p ?psv){${propsToQuery.map(propMap).join('')}}`)
 			queryBuilder.addQueryTerm('?item ?p ?statement.')
 			queryBuilder.addQueryTerm('?statement ?psv ?value.')
@@ -715,7 +819,7 @@ const wikidata = module.exports = {
 				const qid = this.extractQidFromUrl(binding['item'].value)
 				const pid = this.extractQidFromUrl(binding['p'].value)
 				const key = `${qid}:${pid}`
-				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
+				this.pathCache[key] = this._makePathCacheEntry(binding)
 				foundKeys.add(key)
 			}
 
@@ -736,7 +840,7 @@ const wikidata = module.exports = {
 		const qualsToQuery = []
 		for (const query of queries)
 		{
-			if (!this.pathCache[query]) qualsToQuery.push(query)
+			if (!this._isPathCached(query)) qualsToQuery.push(query)
 		}
 		if (qualsToQuery.length > 0)
 		{
@@ -748,8 +852,9 @@ const wikidata = module.exports = {
 			queryBuilder.addOutParam('?item')
 			queryBuilder.addOutParam('?p')
 			queryBuilder.addOutParam('?q')
+			queryBuilder.addOutParam('?statement')
 			queryBuilder.addQueryTerm(`VALUES (?item ?p ?psv ?q){${qualsToQuery.map(qualMap).join('')}}`)
-			queryBuilder.addQueryTerm('?item ?p [ ?q ?datev ].')
+			queryBuilder.addQueryTerm('?item ?p ?statement. ?statement ?q ?datev.')
 			queryBuilder.addTimeBreak('?datev', '?date', '?precision')
 			const query = queryBuilder.build()
 			console.log(query)
@@ -761,7 +866,7 @@ const wikidata = module.exports = {
 				const propId = this.extractQidFromUrl(binding['p'].value)
 				const qualId = this.extractQidFromUrl(binding['q'].value)
 				const key = `${itemId}:${propId}:${qualId}`
-				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
+				this.pathCache[key] = this._makePathCacheEntry(binding)
 				foundKeys.add(key)
 			}
 
@@ -780,7 +885,7 @@ const wikidata = module.exports = {
 		const qualsToQuery = []
 		for (const wdProp of queries)
 		{
-			if (!this.pathCache[wdProp]) qualsToQuery.push(wdProp)
+			if (!this._isPathCached(wdProp)) qualsToQuery.push(wdProp)
 
 			// grab corresponding min/max props as well
 			const split = wdProp.split(':')
@@ -789,17 +894,17 @@ const wikidata = module.exports = {
 			{
 				case "P580":
 					query = `${wdpk}:P1319` // earliest date
-					if (!this.pathCache[query]) qualsToQuery.push(query)
+					if (!this._isPathCached(query)) qualsToQuery.push(query)
 					query = `${wdpk}:P8555` // latest start date
-					if (!this.pathCache[query]) qualsToQuery.push(query)
+					if (!this._isPathCached(query)) qualsToQuery.push(query)
 					break;
 				case "P582":
 					query = `${wdpk}:P8554` // earliest end date
-					if (!this.pathCache[query]) qualsToQuery.push(query)
+					if (!this._isPathCached(query)) qualsToQuery.push(query)
 					query = `${wdpk}:P1326` // latest date
-					if (!this.pathCache[query]) qualsToQuery.push(query)
+					if (!this._isPathCached(query)) qualsToQuery.push(query)
 					query = `${wdpk}:P12506` // latest end date
-					if (!this.pathCache[query]) qualsToQuery.push(query)
+					if (!this._isPathCached(query)) qualsToQuery.push(query)
 					break;
 			}
 		}
@@ -814,8 +919,9 @@ const wikidata = module.exports = {
 			queryBuilder.addOutParam('?p')
 			queryBuilder.addOutParam('?value')
 			queryBuilder.addOutParam('?q')
+			queryBuilder.addOutParam('?statement')
 			queryBuilder.addQueryTerm(`VALUES (?item ?p ?psv ?value ?q){${qualsToQuery.map(qualMap).join('')}}`)
-			queryBuilder.addQueryTerm('?item ?p [ ?psv ?value; ?q ?datev ].')
+			queryBuilder.addQueryTerm('?item ?p ?statement. ?statement ?psv ?value; ?q ?datev.')
 			queryBuilder.addTimeBreak('?datev', '?date', '?precision')
 			const query = queryBuilder.build()
 			console.log(query)
@@ -828,7 +934,7 @@ const wikidata = module.exports = {
 				const valId = this.extractQidFromUrl(binding['value'].value)
 				const qualId = this.extractQidFromUrl(binding['q'].value)
 				const key = `${itemId}:${propId}:${valId}:${qualId}`
-				this.pathCache[key] = { value: this.normalizeWikidataDate(binding['date'].value), precision: binding['precision'].value }
+				this.pathCache[key] = this._makePathCacheEntry(binding)
 				foundKeys.add(key)
 			}
 
@@ -838,6 +944,92 @@ const wikidata = module.exports = {
 				if (!foundKeys.has(wdProp)) this.pathCache[wdProp] = { value: null }
 			}
 		}
+	},
+
+	/**
+	 * Fetches the references on the specified statements, using the reference cache where possible.
+	 * @param {*} statements Iterable of statement URIs.
+	 * @returns An object mapping statement URI to an array of reference objects, like { P854: "http://...", P248: "Q123" }.
+	 */
+	fetchStatementReferences: async function(statements)
+	{
+		const uniqueStatements = [...new Set(statements)]
+
+		// only query statements that aren't cached
+		const statementList = uniqueStatements
+			.filter(statement => this.skipCache || !this.referenceCache[statement])
+			.sort()
+		console.log(`\t${uniqueStatements.length - statementList.length} cached, ${statementList.length} to query.`)
+
+		const batchSize = 200
+
+		for (var batchStart = 0; batchStart < statementList.length; batchStart += batchSize)
+		{
+			const batch = statementList.slice(batchStart, batchStart + batchSize)
+
+			const queryBuilder = new SparqlBuilder()
+			queryBuilder.addCacheBuster(this.cacheBuster)
+			queryBuilder.addOutParam('?statement')
+			queryBuilder.addOutParam('?ref')
+			queryBuilder.addQueryTerm(`VALUES ?statement{${batch.map(uri => `<${uri}>`).join(' ')}}`)
+			queryBuilder.addQueryTerm('?statement prov:wasDerivedFrom ?ref.')
+			for (const refProp of this.referenceProperties)
+			{
+				queryBuilder.addOutParam(`?ref_${refProp}`)
+				queryBuilder.addOptionalQueryTerm(`?ref pr:${refProp} ?ref_${refProp}.`)
+			}
+
+			// store results in the reference cache
+			const query = queryBuilder.build()
+			const data = await this.runQuery(query, true, false)
+			if (!data)
+			{
+				throw 'No response data from Wikidata reference query.'
+			}
+
+			// collect values by statement, then by reference
+			const refsByStatement = {}
+			for (const binding of data.results.bindings)
+			{
+				const statement = binding['statement'].value
+				const refId = binding['ref'].value
+				const statementRefs = refsByStatement[statement] ?? (refsByStatement[statement] = {})
+				const ref = statementRefs[refId] ?? (statementRefs[refId] = {})
+				for (const refProp of this.referenceProperties)
+				{
+					const refValue = binding[`ref_${refProp}`]
+					if (refValue && ref[refProp] === undefined) //HACK: does not support multiple values
+					{
+						ref[refProp] = this._readReferenceValue(refValue)
+					}
+				}
+			}
+
+			for (const statement of batch)
+			{
+				// statements with no references are cached as empty, so they aren't re-queried
+				// omit references that have none of the requested properties
+				this.referenceCache[statement] = Object.values(refsByStatement[statement] ?? {})
+					.filter(ref => Object.keys(ref).length > 0)
+			}
+		}
+
+		const result = {}
+		for (const statement of uniqueStatements)
+		{
+			result[statement] = this.referenceCache[statement]
+		}
+		return result
+	},
+
+	// Reads a reference value from a SPARQL binding, converting entity URIs to ids.
+	_readReferenceValue: function(bindingValue)
+	{
+		if (bindingValue.type == 'uri' && bindingValue.value.startsWith("http://www.wikidata.org/entity/"))
+		{
+			return this.extractQidFromUrl(bindingValue.value)
+		}
+		return bindingValue.value
 	},
 
 	// runs a SPARQL query that generates multiple items
@@ -914,7 +1106,9 @@ const wikidata = module.exports = {
 	},
 
 	// runs a SPARQL query
-	runQuery: async function(query, skipCache = false)
+	// skipCache: if true, the query cache is not read
+	// storeInCache: if false, the result is not written to the query cache
+	runQuery: async function(query, skipCache = false, storeInCache = true)
 	{
 		if (!skipCache && !this.skipCache && this.queryCache[query])
 		{
@@ -935,7 +1129,7 @@ const wikidata = module.exports = {
 		else
 		{
 			const data = await response.json()
-			this.queryCache[query] = data
+			if (storeInCache) this.queryCache[query] = data
 			return data
 		}
 	}
