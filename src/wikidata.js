@@ -46,7 +46,13 @@ const wikidata = module.exports = {
 	/**
 	 * Properties to read from each reference.
 	 */
-	referenceProperties: [ "P854", "P248", "P304" ],
+	referenceProperties: [
+		"P854", // reference URL
+		"P248", // stated in
+		"P304", // page(s)
+		"P478", // volume
+		"P958", // section
+	],
 
 	/**
 	 * Relative path to the query cache file.
