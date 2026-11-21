@@ -180,8 +180,8 @@ renderer.produceOutput = function(inputSpec, items)
 				var next = chain[nextIndex]
 				if (!curr.end_min || !next.start_min) continue
 
-				var overlapStart = moment.max(curr.end_min, next.start_min)
-				var overlapEnd = moment.min(curr.end_max, next.start_max)
+				var overlapStart = momentSafeMax(curr.end_min, next.start_min)
+				var overlapEnd = momentSafeMin(curr.end_max, next.start_max)
 				if (overlapStart < overlapEnd)
 				{
 					// include any other items that are uncertain in the entire overlapped region
