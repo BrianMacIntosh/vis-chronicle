@@ -76,6 +76,24 @@ renderer.getExpectation = function(item)
 	return undefined
 }
 
+// Returns true if the item has any date data at all
+renderer.hasDateData = function(item)
+{
+	return !!(item.start_min || item.start_max || item.end_min || item.end_max)
+}
+
+// Returns false if the item's dates violate its itemRange constraint (if any).
+// A missing date is treated as unknown and never causes an exclusion.
+renderer.isInItemRange = function(item)
+{
+	if (!item.itemRange) return true
+	if (item.itemRange.min && item.end_max && moment(item.itemRange.min).isAfter(item.end_max))
+		return false
+	if (item.itemRange.max && item.start_min && moment(item.itemRange.max).isBefore(item.start_min))
+		return false
+	return true
+}
+
 // produces JSON output from the queried data
 renderer.produceOutput = function(inputSpec, items)
 {
@@ -235,7 +253,7 @@ renderer.produceOutput = function(inputSpec, items)
 		expectation.duration.avg = expectation.duration.avg ?? expectation.duration.max
 		assert(expectation && expectation.duration) // expect at least a universal fallback expectation
 
-		if (!item.start_min && !item.start_max && !item.end_min && !item.end_max)
+		if (!renderer.hasDateData(item))
 		{
 			//console.warn(`Item ${item.id} has no date data at all.`)
 			continue
@@ -256,14 +274,8 @@ renderer.produceOutput = function(inputSpec, items)
 		var usesBgOverlays = false
 
 		// exclude items that violate itemRange constraints
-		//OPT: do this at an earlier stage? (e.g. when running the first query)
-		if (item.itemRange)
-		{
-			if (item.itemRange.min && moment(item.itemRange.min).isAfter(item.end_max))
-				continue
-			if (item.itemRange.max && moment(item.itemRange.max).isBefore(item.start_min))
-				continue
-		}
+		if (!renderer.isInItemRange(item))
+			continue
 
 		if (item.start_max && item.start_max.clone().add(1, 'second') >= item.end_min)
 		{

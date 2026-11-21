@@ -526,6 +526,12 @@ entryPoint()
 		assert(!(item.start_min > item.start_max), "Item start_min is greater than start_max")
 		assert(!(item.end_min > item.end_max), "Item end_min is greater than end_max")
 	}
+
+	// drop items that have no dates or violate their itemRange constraints so they don't appear in any output
+	const itemCount = wikidata.inputSpec.items.length
+	wikidata.inputSpec.items = wikidata.inputSpec.items.filter(item => renderer.hasDateData(item) && renderer.isInItemRange(item))
+	const excludedCount = itemCount - wikidata.inputSpec.items.length
+	if (excludedCount > 0) console.log(`Excluded ${excludedCount} items with no dates or outside their itemRange.`)
 })
 .then(async () => {
 
