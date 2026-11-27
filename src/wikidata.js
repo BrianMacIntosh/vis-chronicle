@@ -48,6 +48,7 @@ const wikidata = module.exports = {
 	 */
 	referenceProperties: [
 		"P854", // reference URL
+		"P953", // work available at URL
 		"P248", // stated in
 		"P304", // page(s)
 		"P478", // volume
